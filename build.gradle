@@ -15,6 +15,7 @@ buildscript {
     }
 }
 
+
 plugins {
     id "com.modrinth.minotaur" version "2.+"
     id 'net.neoforged.gradle' version '[6.0.13, 6.2)'
@@ -25,6 +26,8 @@ apply plugin: 'idea'
 apply plugin: 'maven-publish'
 apply plugin: "com.matthewprenger.cursegradle"
 apply plugin: 'org.spongepowered.mixin'
+
+jarJar.enable()
 
 ext.configFile = file("build.txt")
 configFile.withReader {
@@ -150,6 +153,18 @@ repositories {
             includeGroupByRegex "mezz\\.jei.*"
         }
     }
+    maven {
+        name = 'tterrag'
+        url = 'https://maven.tterrag.com/'
+    }
+    maven {
+        name = 'GeckoLib'
+        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
+        content {
+            includeGroupByRegex("software\\.bernie.*")
+            includeGroup("com.eliotlash.mclib")
+        }
+    }
     flatDir { dirs "libraries/${config.mc_version}/all" }
     flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
     flatDir { dirs "libraries/${config.mc_version}/runtimeOnly" }
@@ -159,11 +174,20 @@ repositories {
 dependencies {
     minecraft "net.neoforged:forge:${config.mc_version}-${config.forge_version}"
 
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
+    jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
+
     if (hasConfig("jei_version") && !config.jei_version.isEmpty()) {
         compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-common-api:${config.jei_version}")
         compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge-api:${config.jei_version}")
         runtimeOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge:${config.jei_version}")
     }
+
+    if (hasConfig("geckolib_version") && !config.geckolib_version.isEmpty()) {
+        implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-${config.mc_version}:${config.geckolib_version}")
+        implementation("com.eliotlash.mclib:mclib:20")
+    }
+
 
     annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
 
@@ -495,12 +519,6 @@ publishing {
             pom.withXml {
                 def dependenciesNode = asNode().appendNode('dependencies')
 
-                if (!config.hl_version.isEmpty()) {
-                    def dependencyNode = dependenciesNode.appendNode('dependency')
-                    dependencyNode.appendNode('groupId', "org.zeith.hammerlib")
-                    dependencyNode.appendNode('artifactId', "HammerLib-${config.mc_version}")
-                    dependencyNode.appendNode('version', config.hl_version)
-                }
             }
         }
     }
@@ -541,5 +559,6 @@ tasks.register("incrementBuildVersionProperty") {
 }
 
 // This piece of garbage will ensure that the build number is updated after build is executed.
+tasks.jarJar.finalizedBy('reobfJarJar')
 tasks.build.doLast incrementBuild
 tasks.buildAndUploadMod.doLast incrementBuild
