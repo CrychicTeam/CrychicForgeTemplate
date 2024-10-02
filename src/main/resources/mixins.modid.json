@@ -1,8 +1,8 @@
 {
  "required": true,
  "minVersion": "0.8.5",
- "package": "org.zeith.modid.mixins",
- "refmap": "mixins.modid.refmap.json",
+ "package": "org.crychicteam.modid.mixins",
+ "refmap": "mixins.crychicteam.refmap.json",
  "target": "@env(DEFAULT)",
  "compatibilityLevel": "JAVA_17",
  "mixins": [
