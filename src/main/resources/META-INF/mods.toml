@@ -22,20 +22,38 @@ description='''${mod_description}'''
 displayTest="MATCH_VERSION"
 
 [[dependencies.${mod_id}]]
-    modId="forge"
-    mandatory=true
-    versionRange="${forge_version_range}"
-    ordering="NONE" # NONE/BEFORE/AFTER
-    side="BOTH"
+modId="forge"
+mandatory=true
+versionRange="${forge_version_range}"
+ordering="NONE" # NONE/BEFORE/AFTER
+side="BOTH"
 [[dependencies.${mod_id}]]
-    modId="minecraft"
-    mandatory=true
-    versionRange="${minecraft_version_range}"
-    ordering="NONE"
-    side="BOTH"
-[[dependencies.${mod_id}]]
-    modId="hammerlib"
-    mandatory=true
-    versionRange="[${hl_version},)"
-    ordering="NONE"
-    side="BOTH"
+modId="minecraft"
+mandatory=true
+versionRange="${minecraft_version_range}"
+ordering="NONE"
+side="BOTH"
+#[[dependencies.${mod_id}]]
+#    modId="curios"
+#    mandatory=true
+#    versionRange="${minecraft_version_range}"
+#    ordering="NONE"
+#    side="BOTH"
+#[[dependencies.${mod_id}]]
+#    modId="geckolib"
+#    mandatory=true
+#    versionRange="${minecraft_version_range}"
+#    ordering="NONE"
+#    side="BOTH"
+#[[dependencies.${mod_id}]]
+#    modId="playeranimator"
+#    mandatory=true
+#    versionRange="${minecraft_version_range}"
+#    ordering="NONE"
+#    side="BOTH"
+#[[dependencies.${mod_id}]]
+#    modId="citadel"
+#    mandatory=true
+#    versionRange="${minecraft_version_range}"
+#    ordering="NONE"
+#    side="BOTH"

@@ -27,7 +27,7 @@ mc_version=1.19.2
 mc_range=[1.19.2]
 forge_version=43.3.0
 forge_range=[43,)
-mc_user=Zeitheron,63fa4c485b5640809727d5d59663e603
+mc_user=Togawa_Sakiko_,b6a0483d-eaf2-4be6-8395-5eecdaa310a6
 
 # Misc Info
 java=17
