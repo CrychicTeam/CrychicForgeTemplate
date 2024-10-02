@@ -176,6 +176,7 @@ repositories {
 
 dependencies {
     minecraft "net.neoforged:forge:${config.mc_version}-${config.forge_version}"
+    compileOnly(annotationProcessor("com.github.llamalad7.mixinextras:mixinextras-common:${config.mixin_extras_version}"))
 
     implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
     jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
@@ -198,6 +199,28 @@ dependencies {
 
     if (hasConfig("enable_annotation") && Boolean.parseBoolean(config.enable_annotation)) {
         annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
+    }
+
+    // Mixin extra
+    if (hasConfig("mixin_extras_version") && !config.mixin_extras_version.isEmpty()) {
+        implementation fg.deobf("com.github.llamalad7.mixinextras:mixinextras-forge:${config.mixin_extras_version}")
+        jarJar(group: 'com.github.llamalad7.mixinextras', name: 'mixinextras-forge', version: "[${config.mixin_extras_version},)")
+    }
+
+    // Libraries jarjar.
+    if (hasConfig("cibrary_version") && !config.cibrary_version.isEmpty()) {
+        implementation fg.deobf("org.crychicteam.cibrary:cibrary:${config.cibrary_version}")
+        jarJar(group: 'org.crychicteam', name: 'cibrary', version: "[${config.cibrary_version},)")
+    }
+
+    if (hasConfig("l2damagetracker_version") && !config.l2damagetracker_version.isEmpty()) {
+        implementation fg.deobf("dev.xkmc.l2damagetracker:l2damagetracker:${config.l2damagetracker_version}")
+        jarJar(group: 'dev.xkmc', name: 'l2damagetracker', version: "[${config.l2damagetracker_version},)")
+    }
+
+    if (hasConfig("l2serial_version") && !config.l2serial_version.isEmpty()) {
+        implementation fg.deobf("dev.xkmc.l2serial:l2serial:${config.l2serial_version}")
+        jarJar(group: 'dev.xkmc', name: 'l2serial', version: "[${config.l2serial_version},)")
     }
 
     def libraries = new File(file("libraries"), "${config.mc_version}")
