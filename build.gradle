@@ -60,6 +60,8 @@ minecraft {
             workingDirectory project.file('run/client')
             property 'forge.logging.console.level', 'debug'
             property 'forge.enabledGameTestNamespaces', config.mod_id
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             def args = new ArrayList()
 
             args.add "--mixin"
@@ -89,7 +91,8 @@ minecraft {
             workingDirectory project.file('run/server')
             property 'forge.logging.console.level', 'debug'
             property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.disableRefMap', 'true'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             def args = new ArrayList()
             args.add "--mixin"
             args.add "mixins.${config.mod_id}.json"
@@ -105,7 +108,8 @@ minecraft {
             workingDirectory project.file('run/server')
             property 'forge.logging.console.level', 'debug'
             property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.disableRefMap', 'true'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             def args = new ArrayList()
             args.add "--mixin"
             args.add "mixins.${config.mod_id}.json"
@@ -121,7 +125,8 @@ minecraft {
             workingDirectory project.file('run/client')
             property 'forge.logging.console.level', 'debug'
             property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.disableRefMap', 'true'
+            property 'mixin.env.remapRefMap', 'true'
+            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
             def args = new ArrayList()
             args.add "--mixin"
             args.add "mixins.${config.mod_id}.json"
@@ -140,7 +145,7 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 repositories {
     maven {
         name = "Jared's maven"
-        url = "https://maven.blamejared.com/" // location of the maven that hosts JEI files since January 2023
+        url = "https://maven.blamejared.com/"
         content {
             includeGroupByRegex "mezz\\.jei.*"
         }
@@ -155,6 +160,12 @@ repositories {
         content {
             includeGroupByRegex("software\\.bernie.*")
             includeGroup("com.eliotlash.mclib")
+        }
+    }
+    maven {
+        url = "https://maven.theillusivec4.top/"
+        content {
+            includeGroup "top.theillusivec4.curios"
         }
     }
     flatDir { dirs "libraries/${config.mc_version}/all" }
@@ -180,8 +191,14 @@ dependencies {
         implementation("com.eliotlash.mclib:mclib:20")
     }
 
+    if (hasConfig("curios_version") && !config.curios_version.isEmpty()) {
+        implementation fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
+        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
+    }
 
-    annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
+    if (hasConfig("enable_annotation") && Boolean.parseBoolean(config.enable_annotation)) {
+        annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
+    }
 
     def libraries = new File(file("libraries"), "${config.mc_version}")
     if (!libraries.isDirectory()) libraries.mkdirs()
@@ -251,7 +268,7 @@ def replaceProperties = [
         forge_version    : "${config.mc_version}-${config.forge_version}", forge_version_range: config.forge_range,
         mod_id           : config.mod_id, mod_name: config.mod_name, mod_license: config.mod_license, mod_version: config.mod_version,
         mod_authors      : config.mod_authors, mod_description: config.mod_description,
-        hl_version       : config.hl_version, modrinth_project: config.modrinth_project,
+        modrinth_project : config.modrinth_project,
         issue_tracker_url: config.issue_tracker_url, mod_credits: config.mod_credits
 ]
 processResources {
