@@ -122,17 +122,28 @@ minecraft {
         }
 
         data {
-            workingDirectory project.file('run/client')
+            workingDirectory project.file('run/data')
             property 'forge.logging.console.level', 'debug'
             property 'forge.enabledGameTestNamespaces', config.mod_id
             property 'mixin.env.remapRefMap', 'true'
             property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+
             def args = new ArrayList()
+            args.add "--mod"
+            args.add config.mod_id
+            args.add "--all"
+            args.add "--output"
+            args.add file('src/generated/resources/').absolutePath
+            args.add "--existing"
+            args.add file('src/main/resources/').absolutePath
+
             args.add "--mixin"
             args.add "mixins.${config.mod_id}.json"
+
             setArgs(args)
+
             mods {
-                "${mod_id}" {
+                "${config.mod_id}" {
                     source sourceSets.main
                 }
             }
