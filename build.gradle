@@ -327,6 +327,7 @@ jar {
                 "MixinConfigs"            : "mixins.${config.mod_id}.json"
         ])
     }
+    archiveClassifier.set('slim')
 }
 
 task deobfJar(type: Jar) {
@@ -601,7 +602,13 @@ tasks.register("incrementBuildVersionProperty") {
     doLast incrementBuild
 }
 
-// This piece of garbage will ensure that the build number is updated after build is executed.
 tasks.jarJar.finalizedBy('reobfJarJar')
-tasks.build.doLast incrementBuild
-tasks.buildAndUploadMod.doLast incrementBuild
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.jarJar.configure {
+    // remove '-all' from jarJar jar file
+    archiveClassifier.set('')
+}
