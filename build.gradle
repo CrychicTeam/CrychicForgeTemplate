@@ -179,6 +179,10 @@ repositories {
             includeGroup "top.theillusivec4.curios"
         }
     }
+    maven {
+        name "KosmX's maven"
+        url 'https://maven.kosmx.dev/'
+    }
     flatDir { dirs "libraries/${config.mc_version}/all" }
     flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
     flatDir { dirs "libraries/${config.mc_version}/runtimeOnly" }
@@ -206,6 +210,11 @@ dependencies {
     if (hasConfig("curios_version") && !config.curios_version.isEmpty()) {
         implementation fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
         runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
+    }
+
+    if (hasConfig("playeranimator_version") && !config.playeranimator_version.isEmpty()) {
+        implementation fg.deobf("dev.kosmx.player-anim:player-animation-lib-forge:${config.playeranimator_version}")
+        runtimeOnly fg.deobf("io.github.kosmx.bendy-lib:bendy-lib-forge:${config.bendylib_version}")
     }
 
     if (hasConfig("enable_annotation") && Boolean.parseBoolean(config.enable_annotation)) {
