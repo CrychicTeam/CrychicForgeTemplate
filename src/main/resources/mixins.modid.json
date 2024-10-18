@@ -1,7 +1,7 @@
 {
  "required": true,
  "minVersion": "0.8.5",
- "package": "org.crychicteam.modid.mixins",
+ "package": "org.crychicteam.doc.mixins",
  "refmap": "mixins.crychicteam.refmap.json",
  "target": "@env(DEFAULT)",
  "compatibilityLevel": "JAVA_17",
