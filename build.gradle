@@ -588,8 +588,9 @@ tasks.withType(JavaCompile).configureEach {
 
 import java.nio.file.Files
 
+
 def incrementBuild = {
-    if (!hasConfig("build_candidate") || !Boolean.parseBoolean(config.build_candidate)) {
+    if (hasConfig("formal_version") || Boolean.parseBoolean(config.formal_version)) {
         def buildTxt = configFile.toPath()
         List<String> lines = Files.readAllLines buildTxt
         lines.replaceAll { String ln ->
@@ -603,13 +604,14 @@ def incrementBuild = {
             return ln
         }
         Files.write buildTxt, lines, java.nio.file.StandardOpenOption.CREATE
-    } else println "Build candidate enabled, we are not increasing build number after this."
+    }
 }
 
 tasks.register("incrementBuildVersionProperty") {
     group "upload"
     doLast incrementBuild
 }
+tasks.build.dependsOn tasks.incrementBuildVersionProperty
 
 tasks.jarJar.finalizedBy('reobfJarJar')
 
