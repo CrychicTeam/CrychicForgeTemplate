@@ -175,9 +175,6 @@ repositories {
     }
     maven {
         url = "https://maven.theillusivec4.top/"
-        content {
-            includeGroup "top.theillusivec4.curios"
-        }
     }
     maven {
         name "KosmX's maven"
