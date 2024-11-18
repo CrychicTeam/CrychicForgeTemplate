@@ -218,7 +218,7 @@ dependencies {
     }
 
     if (hasConfig("enable_annotation") && Boolean.parseBoolean(config.enable_annotation)) {
-        annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
+        compileOnly(annotationProcessor("org.spongepowered:mixin:0.8.7:processor"))
     }
 
     // Mixin extra
