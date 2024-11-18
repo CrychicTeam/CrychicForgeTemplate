@@ -155,6 +155,9 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     maven {
+        url "https://cursemaven.com"
+    }
+    maven {
         name = "Jared's maven"
         url = "https://maven.blamejared.com/"
         content {
