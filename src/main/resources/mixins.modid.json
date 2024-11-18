@@ -3,7 +3,7 @@
  "priority": 800,
  "minVersion": "0.8",
  "package": "org.crychicteam.modid.mixins",
- "refmap": "mixins.crychicteam.refmap.json",
+ "refmap": "examplemod.refmap.json",
  "compatibilityLevel": "JAVA_17",
  "mixins": [
  ],
