@@ -268,6 +268,11 @@ dependencies {
         jarJar(group: 'dev.xkmc', name: 'l2serial', version: "[${config.l2serial_version},)")
     }
 
+    if (hasConfig("pibrary_version") && !config.pibrary_version.isEmpty()) {
+        implementation fg.deobf("com.mihono.pickaid:pibrary:${config.pibrary_version}")
+        jarJar(group: 'com.mihono.pickaid', name: 'pibrary', version: "[${config.pibrary_version},)")
+    }
+
     if (hasConfig("rpg_projects") && !config.rpg_projects.isEmpty()) {
         // attribute fix
         runtimeOnly fg.deobf("curse.maven:attributefix-280510:4648448")
