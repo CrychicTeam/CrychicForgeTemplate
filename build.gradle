@@ -155,9 +155,6 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 
 repositories {
     maven {
-        url "https://cursemaven.com"
-    }
-    maven {
         name = "Jared's maven"
         url = "https://maven.blamejared.com/"
         content {
@@ -178,11 +175,36 @@ repositories {
     }
     maven {
         url = "https://maven.theillusivec4.top/"
+        content {
+            includeGroup "top.theillusivec4.curios"
+        }
     }
     maven {
         name "KosmX's maven"
         url 'https://maven.kosmx.dev/'
     }
+    maven {
+        name = "Curseforge"
+        url = "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        // Shedaniel's maven (Architectury API)
+        url = "https://maven.architectury.dev"
+        content {
+            includeGroup "dev.architectury"
+        }
+    }
+    maven {
+        name = "Lat's Maven"
+        url = "https://maven.saps.dev/minecraft"
+        content {
+            includeGroup "dev.latvian.mods"
+        }
+    }
+    maven { url "https://maven.mihono.cn/repository/pickaid/" }
     flatDir { dirs "libraries/${config.mc_version}/all" }
     flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
     flatDir { dirs "libraries/${config.mc_version}/runtimeOnly" }
@@ -193,11 +215,11 @@ dependencies {
     minecraft "net.neoforged:forge:${config.mc_version}-${config.forge_version}"
     compileOnly(annotationProcessor("com.github.llamalad7.mixinextras:mixinextras-common:${config.mixin_extras_version}"))
 
-    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
+    compileOnly fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
     jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
 
     if (hasConfig("jei_version") && !config.jei_version.isEmpty()) {
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-common-api:${config.jei_version}")
+        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-server-api:${config.jei_version}")
         compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge-api:${config.jei_version}")
         runtimeOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge:${config.jei_version}")
     }
@@ -205,11 +227,12 @@ dependencies {
     if (hasConfig("geckolib_version") && !config.geckolib_version.isEmpty()) {
         implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-${config.mc_version}:${config.geckolib_version}")
         implementation("com.eliotlash.mclib:mclib:20")
+        jarJar(group: 'software.bernie.geckolib', name: "geckolib-neoforge-${config.mc_version}", version: "[${config.geckolib_version},)")
     }
 
     if (hasConfig("curios_version") && !config.curios_version.isEmpty()) {
-        implementation fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
-        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
+        compileOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
+//        runtimeOnly fg.deobf("top.theillusivec4.curios:curios-forge:${config.curios_version}")
     }
 
     if (hasConfig("playeranimator_version") && !config.playeranimator_version.isEmpty()) {
@@ -227,11 +250,13 @@ dependencies {
         jarJar(group: 'com.github.llamalad7.mixinextras', name: 'mixinextras-forge', version: "[${config.mixin_extras_version},)")
     }
 
-    // Libraries jarjar.
-    if (hasConfig("cibrary_version") && !config.cibrary_version.isEmpty()) {
-        implementation fg.deobf("org.crychicteam.cibrary:cibrary:${config.cibrary_version}")
-        jarJar(group: 'org.crychicteam', name: 'cibrary', version: "[${config.cibrary_version},)")
+    if (hasConfig("l2_library_version") && !config.l2_library_version.isEmpty()) {
+        implementation fg.deobf("dev.xkmc.l2library:l2library:${config.l2_library_version}")
+        jarJar(group: 'dev.xkmc', name: 'l2library', version: "[${config.l2_library_version},)")
     }
+
+
+    // Libraries jarjar.
 
     if (hasConfig("l2damagetracker_version") && !config.l2damagetracker_version.isEmpty()) {
         implementation fg.deobf("dev.xkmc.l2damagetracker:l2damagetracker:${config.l2damagetracker_version}")
@@ -242,6 +267,29 @@ dependencies {
         implementation fg.deobf("dev.xkmc.l2serial:l2serial:${config.l2serial_version}")
         jarJar(group: 'dev.xkmc', name: 'l2serial', version: "[${config.l2serial_version},)")
     }
+
+    if (hasConfig("rpg_projects") && !config.rpg_projects.isEmpty()) {
+        // attribute fix
+        runtimeOnly fg.deobf("curse.maven:attributefix-280510:4648448")
+        // max health fix
+        runtimeOnly fg.deobf("curse.maven:max-health-fix-492246:4648479")
+        // dummy target
+        runtimeOnly fg.deobf("curse.maven:mmmmmmmmmmmm-225738:4602101")
+        runtimeOnly fg.deobf("curse.maven:selene-499980:4656567")
+        // apple skin
+        compileOnly fg.deobf("curse.maven:appleskin-248787:4605078")
+        runtimeOnly fg.deobf("curse.maven:appleskin-248787:4605078")
+    }
+
+    if (hasConfig("reference_projects") && !config.reference_projects.isEmpty()) {
+        compileOnly fg.deobf("curse.maven:forgeendertech-244844:6030567")
+        compileOnly fg.deobf("curse.maven:advanced-hook-launchers-244849:5829843")
+    }
+
+    // KubeJS Integrations.
+    compileOnly fg.deobf("dev.latvian.mods:kubejs-forge:${config.kubejs_version}")
+    compileOnly fg.deobf("dev.latvian.mods:rhino-forge:${config.rhino_version}")
+    implementation fg.deobf("dev.architectury:architectury-forge:${config.architectury_version}")
 
     def libraries = new File(file("libraries"), "${config.mc_version}")
     if (!libraries.isDirectory()) libraries.mkdirs()
@@ -563,21 +611,35 @@ publishing {
     publications {
         mavenJava(MavenPublication) {
             groupId = config.maven_group
-            artifactId = config.archive_name + "-" + config.mc_version
+            artifactId = config.archive_name
+            version = config.mc_version.replace('.', '') + "-" + config.mod_version
 
-            artifact reobfArtifact
-            artifact srcJar
-            artifact deobfJar
+            artifact(reobfArtifact) {
+                classifier = config.mod_version
+            }
+
+            artifact(srcJar) {
+                classifier = config.mod_version + '-sources'
+            }
+
+            artifact(deobfJar) {
+                classifier = config.mod_version + '-deobf'
+            }
 
             pom.withXml {
                 def dependenciesNode = asNode().appendNode('dependencies')
-
             }
         }
     }
     repositories {
         maven {
             url config.maven_url
+            if (hasConfig("maven_user") && !config.maven_user.isEmpty()) {
+                credentials {
+                    username = config.maven_user
+                    password = config.maven_passwd
+                }
+            }
         }
     }
 }
@@ -587,7 +649,6 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 import java.nio.file.Files
-
 
 def incrementBuild = {
     if (hasConfig("formal_version") || Boolean.parseBoolean(config.formal_version)) {
