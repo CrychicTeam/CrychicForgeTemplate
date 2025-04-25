@@ -1,4 +1,4 @@
-package org.crychicteam.modid;
+package org.pickaid.modid;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraftforge.fml.common.Mod;
