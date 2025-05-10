@@ -1,6 +1,6 @@
 # Mod Info
 enable_annotation=true
-mod_version=0.2.21
+mod_version=0.0.1
 formal_version = false
 
 # jei_version= 15.2.0.27
