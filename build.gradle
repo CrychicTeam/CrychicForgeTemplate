@@ -206,7 +206,7 @@ repositories {
     }
     maven {
         name = "Mihono's maven"
-        url = "https://maven.mihono.cn/repository/maven-public/"
+        url = "https://maven.mihono.cn/repository/pickaid1201/"
     }
     flatDir { dirs "libraries/${config.mc_version}/all" }
     flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
@@ -272,8 +272,8 @@ dependencies {
     }
 
     if (hasConfig("pibrary_version") && !config.pibrary_version.isEmpty()) {
-        implementation fg.deobf("com.mihono.pickaid:pibrary:${config.pibrary_version}")
-        jarJar(group: 'com.mihono.pickaid', name: 'pibrary', version: "[${config.pibrary_version},)")
+        implementation fg.deobf("com.mihono.pickaid:Pibrary:${config.pibrary_version}")
+        jarJar(group: 'com.mihono.pickaid', name: 'Pibrary', version: "[${config.pibrary_version},)")
     }
 
     if (hasConfig("rpg_projects") && !config.rpg_projects.isEmpty()) {
@@ -393,6 +393,25 @@ jar {
         ])
     }
     archiveClassifier.set('slim')
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifact jar
+        }
+    }
+    repositories {
+        maven {
+            url config.maven_url
+            if (hasConfig("maven_user") && !config.maven_user.isEmpty()) {
+                credentials {
+                    username = config.maven_user
+                    password = config.maven_passwd
+                }
+            }
+        }
+    }
 }
 
 task deobfJar(type: Jar) {
@@ -612,40 +631,6 @@ afterEvaluate {
     if (!config.maven_url.isEmpty()) {
         tasks["curseforge${config.cf_project}"].dependsOn.add(publish)
         tasks["modrinth"].dependsOn.add(publish)
-    }
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = config.maven_group
-            artifactId = config.archive_name
-            version = config.mc_version.replace('.', '') + "-" + config.mod_version
-
-            artifact(reobfArtifact) {
-            }
-            artifact(srcJar) {
-                classifier = 'sources'
-            }
-            artifact(deobfJar) {
-                classifier = 'dev'
-            }
-
-            pom.withXml {
-                def dependenciesNode = asNode().appendNode('dependencies')
-            }
-        }
-    }
-    repositories {
-        maven {
-            url config.maven_url
-            if (hasConfig("maven_user") && !config.maven_user.isEmpty()) {
-                credentials {
-                    username = config.maven_user
-                    password = config.maven_passwd
-                }
-            }
-        }
     }
 }
 
