@@ -641,7 +641,7 @@ tasks.withType(JavaCompile).configureEach {
 import java.nio.file.Files
 
 def incrementBuild = {
-    if (hasConfig("formal_version") || Boolean.parseBoolean(config.formal_version)) {
+    if (hasConfig("formal_version") && Boolean.parseBoolean(config.formal_version)) {
         def buildTxt = configFile.toPath()
         List<String> lines = Files.readAllLines buildTxt
         lines.replaceAll { String ln ->
