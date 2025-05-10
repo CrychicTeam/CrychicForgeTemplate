@@ -204,7 +204,10 @@ repositories {
             includeGroup "dev.latvian.mods"
         }
     }
-    maven { url "https://maven.mihono.cn/repository/pickaid/" }
+    maven {
+        name = "Mihono's maven"
+        url = "https://maven.mihono.cn/repository/maven-public/"
+    }
     flatDir { dirs "libraries/${config.mc_version}/all" }
     flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
     flatDir { dirs "libraries/${config.mc_version}/runtimeOnly" }
@@ -620,15 +623,12 @@ publishing {
             version = config.mc_version.replace('.', '') + "-" + config.mod_version
 
             artifact(reobfArtifact) {
-                classifier = config.mod_version
             }
-
             artifact(srcJar) {
-                classifier = config.mod_version + '-sources'
+                classifier = 'sources'
             }
-
             artifact(deobfJar) {
-                classifier = config.mod_version + '-deobf'
+                classifier = 'dev'
             }
 
             pom.withXml {
