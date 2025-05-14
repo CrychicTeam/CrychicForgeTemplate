@@ -28,6 +28,16 @@ apply plugin: 'org.spongepowered.mixin'
 
 jarJar.enable()
 
+//Make the result of jarJar the default.
+tasks.jarJar.configure {
+    it.archiveClassifier.set("")
+    finalizedBy("reobfJarJar")
+}
+
+tasks.jar.configure {
+    it.archiveClassifier.set("slim")
+}
+
 ext.configFile = file("build.txt")
 configFile.withReader {
     def prop = new Properties()
@@ -198,10 +208,16 @@ repositories {
         }
     }
     maven {
-        name = "Lat's Maven"
-        url = "https://maven.saps.dev/minecraft"
+        url "https://maven.latvian.dev/releases"
         content {
             includeGroup "dev.latvian.mods"
+            includeGroup "dev.latvian.apps"
+        }
+    }
+    maven {
+        url 'https://jitpack.io'
+        content {
+            includeGroup "com.github.rtyley"
         }
     }
     maven {
@@ -398,8 +414,18 @@ jar {
 publishing {
     publications {
         mavenJava(MavenPublication) {
+//            artifact jar
             from components.java
             artifact(tasks.jarJar)
+            artifactId = config.mod_id
+
+            pom {
+                packaging = 'pom'
+                withXml {
+                    def root = asNode()
+                    root.dependencies.replaceNode {}
+                }
+            }
         }
     }
     repositories {
@@ -665,13 +691,6 @@ tasks.register("incrementBuildVersionProperty") {
 }
 tasks.build.dependsOn tasks.incrementBuildVersionProperty
 
-tasks.jarJar.finalizedBy('reobfJarJar')
-
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
-
-tasks.jarJar.configure {
-    // remove '-all' from jarJar jar file
-    archiveClassifier.set('')
 }
