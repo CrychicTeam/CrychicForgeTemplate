@@ -1,3 +1,5 @@
+<div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
+
 # Minecraft NeoForge Mod 开发模板
 
 [English Version](README_EN.md) | 中文版
@@ -141,8 +143,8 @@ modrinth_project=Modrinth项目ID
 1. **重命名assets文件夹**：
    - 将 `src/main/resources/assets/modid/` 重命名为 `src/main/resources/assets/yourmodid/`
 
-2. **可选：添加mod图标**：
-   - 在 `src/main/resources/` 目录下添加 `yourmodid.png` 作为mod图标（64x64像素）
+2. **可选：修改mod图标**：
+   - 在 `src/main/resources/` 目录下修改 `icon.png` 作为mod图标（64x64像素）
 
 ### 4. 开发环境设置
 

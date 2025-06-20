@@ -1,3 +1,5 @@
+<div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
+
 # Minecraft NeoForge Mod Development Template
 
 English Version | [中文版](README.md)
@@ -141,8 +143,8 @@ To enable optional dependencies (like JEI, Curios, etc.), simply:
 1. **Rename Assets Folder**:
    - Rename `src/main/resources/assets/modid/` to `src/main/resources/assets/yourmodid/`
 
-2. **Optional: Add Mod Icon**:
-   - Add `yourmodid.png` in the `src/main/resources/` directory as the mod icon (64x64 pixels)
+2. **Optional: Modify Mod Icon**:
+   - change `icon.png` in the `src/main/resources/` directory as the mod icon (64x64 pixels)
 
 ### 4. Development Environment Setup
 
