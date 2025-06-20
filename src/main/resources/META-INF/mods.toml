@@ -21,39 +21,58 @@ description='''${mod_description}'''
 # IMPORTANT NOTE: this is NOT an instruction as to which environments (CLIENT or DEDICATED SERVER) your mod loads on. Your mod should load (and maybe do nothing!) whereever it finds itself.
 displayTest="MATCH_VERSION"
 
+# Forge 核心依赖
 [[dependencies.${mod_id}]]
 modId="forge"
 mandatory=true
 versionRange="${forge_version_range}"
 ordering="NONE" # NONE/BEFORE/AFTER
 side="BOTH"
+
+# Minecraft 核心依赖
 [[dependencies.${mod_id}]]
 modId="minecraft"
 mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+
+# Curios API - 饰品系统，提供玩家装备槽位扩展
 #[[dependencies.${mod_id}]]
-#    modId="curios"
-#    mandatory=true
-#    versionRange="${minecraft_version_range}"
-#    ordering="NONE"
-#    side="BOTH"
+#modId="curios"
+#mandatory=false
+#versionRange="${curios_version}"
+#ordering="NONE"
+#side="BOTH"
+
+# GeckoLib - 动画库，用于复杂的实体和方块动画
 #[[dependencies.${mod_id}]]
-#    modId="geckolib"
-#    mandatory=true
-#    versionRange="${minecraft_version_range}"
-#    ordering="NONE"
-#    side="BOTH"
+#modId="geckolib"
+#mandatory=false
+#versionRange="${geckolib_version}"
+#ordering="NONE"
+#side="BOTH"
+
+# Player Animator - 玩家动画库，用于自定义玩家动作
 #[[dependencies.${mod_id}]]
-#    modId="playeranimator"
-#    mandatory=true
-#    versionRange="${minecraft_version_range}"
-#    ordering="NONE"
-#    side="BOTH"
+#modId="playeranimator"
+#mandatory=false
+#versionRange="${playeranimator_version}"
+#ordering="NONE"
+#side="BOTH"
+
+# Citadel - 前置库，某些模组的依赖项
 #[[dependencies.${mod_id}]]
-#    modId="citadel"
-#    mandatory=true
-#    versionRange="${minecraft_version_range}"
-#    ordering="NONE"
-#    side="BOTH"
+#modId="citadel"
+#mandatory=false
+#versionRange="${citadel_version}"
+#ordering="NONE"
+#side="BOTH"
+
+# JEI - Just Enough Items，物品查看器和配方查看
+# [[dependencies.${mod_id}]]
+# modId="jei"
+# mandatory=false
+# versionRange="${jei_version}"
+# ordering="NONE"
+# side="BOTH"

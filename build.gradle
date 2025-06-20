@@ -430,11 +430,15 @@ publishing {
     }
     repositories {
         maven {
-            url config.maven_url
-            if (hasConfig("maven_user") && !config.maven_user.isEmpty()) {
+            url = System.env.MAVEN_URL != null ? System.env.MAVEN_URL : config.maven_url
+            
+            def mavenUser = System.env.MAVEN_USER != null ? System.env.MAVEN_USER : config.maven_user
+            def mavenPassword = System.env.MAVEN_PASSWORD != null ? System.env.MAVEN_PASSWORD : config.maven_passwd
+            
+            if (mavenUser != null && !mavenUser.isEmpty()) {
                 credentials {
-                    username = config.maven_user
-                    password = config.maven_passwd
+                    username = mavenUser
+                    password = mavenPassword
                 }
             }
         }
