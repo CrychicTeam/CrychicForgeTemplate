@@ -38,7 +38,7 @@ issue_tracker_url=https://github.com/org/repo/issues
 # Maven Info
 # This is PickAID's maven repository, please do not use it for your own mods.
 maven_group=com.mihono.pickaid
-maven_url=https://maven.mihono.cn/repository/pickaid/
+maven_url=https://maven.mihono.cn/repository/pickaid1201/
 
 maven_user=
 maven_passwd=
