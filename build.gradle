@@ -250,9 +250,9 @@ dependencies {
     jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
 
     if (enabledFeatures.jei) {
-        compileOnly fg.deobf("mezz.jei:jei-1.20.1-common-api:${resolvedFeatureVersions.jei}")
-        compileOnly fg.deobf("mezz.jei:jei-1.20.1-forge-api:${resolvedFeatureVersions.jei}")
-        runtimeOnly fg.deobf("mezz.jei:jei-1.20.1-forge:${resolvedFeatureVersions.jei}")
+        compileOnly fg.deobf("mezz.jei:jei-${templatePlatform.mcVersion}-common-api:${resolvedFeatureVersions.jei}")
+        compileOnly fg.deobf("mezz.jei:jei-${templatePlatform.mcVersion}-forge-api:${resolvedFeatureVersions.jei}")
+        runtimeOnly fg.deobf("mezz.jei:jei-${templatePlatform.mcVersion}-forge:${resolvedFeatureVersions.jei}")
     }
 
     if (enabledFeatures.curios) {
@@ -260,8 +260,9 @@ dependencies {
     }
 
     if (enabledFeatures.geckolib) {
-        implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-1.20.1:${resolvedFeatureVersions.geckolib}")
+        implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-${templatePlatform.mcVersion}:${resolvedFeatureVersions.geckolib}")
         implementation("com.eliotlash.mclib:mclib:20")
+        jarJar(group: 'software.bernie.geckolib', name: "geckolib-neoforge-${templatePlatform.mcVersion}", version: "[${resolvedFeatureVersions.geckolib},)")
     }
 
     if (enabledFeatures.player_animator) {
@@ -275,6 +276,7 @@ dependencies {
 
     if (enabledFeatures.mixin_extras) {
         implementation fg.deobf("com.github.llamalad7.mixinextras:mixinextras-forge:${resolvedFeatureVersions.mixinExtras}")
+        jarJar(group: 'com.github.llamalad7.mixinextras', name: 'mixinextras-forge', version: "[${resolvedFeatureVersions.mixinExtras},)")
     }
 
     if (hasConfig("l2_library_version") && !config.l2_library_version.isEmpty()) {
