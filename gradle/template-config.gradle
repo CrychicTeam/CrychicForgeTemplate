@@ -114,6 +114,45 @@ def overridesTable = templateParsed.getTable("overrides")
 def platformTable = expectTable(defaultsParsed, "platform")
 def versionsTable = expectTable(defaultsParsed, "versions")
 
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "overrides", "publish", "naming"] as Set
+def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "kubejs", "mixin_extras"] as Set
+def allowedOverrideToFeature = [
+    "jei_version"             : "jei",
+    "curios_version"          : "curios",
+    "geckolib_version"        : "geckolib",
+    "player_animator_version" : "player_animator",
+    "bendylib_version"        : "player_animator",
+    "kubejs_version"          : "kubejs",
+    "rhino_version"           : "kubejs",
+    "architectury_version"    : "kubejs",
+    "mixin_extras_version"    : "mixin_extras"
+] as Map<String, String>
+def allowedJarTokens = ["archive_name", "mod_id", "version", "mc_version", "loader"] as Set
+
+templateParsed.dottedKeySet().collect { it.split("\\.")[0] }.unique().each { key ->
+    if (!allowedTopLevel.contains(key)) {
+        failConfig("Unknown top-level key: ${key}")
+    }
+}
+
+featuresTable.keySet().each { key ->
+    if (!allowedFeatures.contains(key)) {
+        failConfig("Unknown feature key: ${key}")
+    }
+}
+
+if (overridesTable != null) {
+    overridesTable.keySet().each { key ->
+        def owningFeature = allowedOverrideToFeature[key]
+        if (owningFeature == null) {
+            failConfig("Unknown override key: ${key}")
+        }
+        if (!(featuresTable.getBoolean(owningFeature) ?: false)) {
+            failConfig("Override ${key} requires enabled feature ${owningFeature}")
+        }
+    }
+}
+
 ext.templateTables = [
     mod      : modTable,
     features : featuresTable,
@@ -129,65 +168,110 @@ def versionSuffix = optionalStringFromTable(modTable, "version_suffix")
 def finalVersion = versionSuffix.isBlank() ? baseVersion : "${baseVersion}-${versionSuffix}"
 def archiveName = expectStringFromTable(namingTable, "archive_name", "naming")
 def authors = expectStringArray(modTable, "authors", "mod")
+def releaseType = publishTable.getString("release_type")
+def allowedReleaseTypes = ["alpha", "beta", "release"] as Set
+if (!allowedReleaseTypes.contains(releaseType)) {
+    failConfig("Unsupported release_type: ${releaseType}")
+}
+
+def mcVersion = expectStringFromTable(platformTable, "mc_version", "platform")
+def mcRange = expectStringFromTable(platformTable, "mc_range", "platform")
+def forgeVersion = expectStringFromTable(platformTable, "forge_version", "platform")
+def forgeRange = expectStringFromTable(platformTable, "forge_range", "platform")
+def javaVersion = expectStringFromTable(platformTable, "java", "platform")
+
+def renderJarFormat = { String format, Map<String, String> tokens ->
+    def matcher = (format =~ /\{([^}]+)\}/)
+    matcher.each { match ->
+        def token = match[1]
+        if (!allowedJarTokens.contains(token)) {
+            failConfig("Unsupported jar_format token: ${token}")
+        }
+    }
+
+    def rendered = format
+    tokens.each { token, value ->
+        rendered = rendered.replace("{${token}}", value)
+    }
+
+    if (rendered.isBlank()) {
+        failConfig("Rendered jar_format must not be blank")
+    }
+    if (rendered =~ /[\/\\\\:]/) {
+        failConfig("Rendered jar_format contains illegal path characters: ${rendered}")
+    }
+
+    rendered
+}
+
+def renderedArchiveStem = renderJarFormat(
+    namingTable.getString("jar_format") ?: "{archive_name}-{mc_version}-{version}",
+    [
+        archive_name: archiveName,
+        mod_id      : modId,
+        version     : finalVersion,
+        mc_version  : mcVersion,
+        loader      : "forge"
+    ]
+)
 
 def resolveVersion = { String overrideKey, String defaultsKey ->
     def overrideValue = overridesTable?.getString(overrideKey)
     overrideValue != null ? overrideValue : expectStringFromTable(versionsTable, defaultsKey, "versions")
 }
 
-def enabledFeature = { String key ->
-    def value = featuresTable.getBoolean(key)
-    value != null ? value : false
+ext.enabledFeatures = allowedFeatures.collectEntries { key ->
+    [(key): (featuresTable.getBoolean(key) ?: false)]
 }
 
 ext.template = [
-    schemaVersion : schemaVersion,
+    schemaVersion  : schemaVersion,
     templateVersion: templateVersion,
     defaultsRevision: defaultsRevision,
-    modId         : modId,
-    modName       : modName,
-    version       : baseVersion,
-    versionSuffix : versionSuffix,
-    finalVersion  : finalVersion,
-    group         : expectStringFromTable(modTable, "group", "mod"),
-    authors       : authors,
-    license       : expectStringFromTable(modTable, "license", "mod"),
-    description   : expectStringFromTable(modTable, "description", "mod"),
-    credits       : optionalStringFromTable(modTable, "credits", "None"),
-    issueTracker  : optionalStringFromTable(modTable, "issue_tracker_url"),
-    archiveName   : archiveName,
-    releaseType   : optionalStringFromTable(publishTable, "release_type", "alpha"),
-    mavenUrl      : optionalStringFromTable(publishTable, "maven_url"),
+    modId          : modId,
+    modName        : modName,
+    version        : baseVersion,
+    versionSuffix  : versionSuffix,
+    finalVersion   : finalVersion,
+    group          : expectStringFromTable(modTable, "group", "mod"),
+    authors        : authors,
+    license        : expectStringFromTable(modTable, "license", "mod"),
+    description    : expectStringFromTable(modTable, "description", "mod"),
+    credits        : optionalStringFromTable(modTable, "credits", "None"),
+    issueTracker   : optionalStringFromTable(modTable, "issue_tracker_url"),
+    archiveName    : archiveName,
+    renderedArchiveStem: renderedArchiveStem,
+    releaseType    : releaseType,
+    mavenUrl       : optionalStringFromTable(publishTable, "maven_url"),
     curseforgeProject: optionalLongFromTable(publishTable, "curseforge_project", 0L),
     modrinthProject: optionalStringFromTable(publishTable, "modrinth_project")
 ]
 
-ext.enabledFeatures = [
-    jei            : enabledFeature("jei"),
-    curios         : enabledFeature("curios"),
-    geckolib       : enabledFeature("geckolib"),
-    player_animator: enabledFeature("player_animator"),
-    kubejs         : enabledFeature("kubejs"),
-    mixin_extras   : enabledFeature("mixin_extras")
+ext.templatePlatform = [
+    mcVersion         : mcVersion,
+    mcVersionRange    : mcRange,
+    forgeVersion      : forgeVersion,
+    forgeVersionRange : forgeRange,
+    forgeVersionWithMc: "${mcVersion}-${forgeVersion}",
+    javaVersion       : javaVersion,
+    loader            : "forge"
 ]
 
-["kubejs", "mixin_extras"].each { String featureKey ->
-    if (!enabledFeatures[featureKey]) {
-        failConfig("Feature ${featureKey} cannot be disabled until feature-driven dependency resolution is implemented")
-    }
-}
-
 ext.resolvedFeatureVersions = [
-    registrate   : expectStringFromTable(versionsTable, "registrate", "versions"),
-    jei          : enabledFeatures.jei ? resolveVersion("jei_version", "jei") : "",
-    curios       : enabledFeatures.curios ? resolveVersion("curios_version", "curios") : "",
-    geckolib     : enabledFeatures.geckolib ? resolveVersion("geckolib_version", "geckolib") : "",
-    playerAnimator: enabledFeatures.player_animator ? resolveVersion("player_animator_version", "player_animator") : "",
-    bendylib     : enabledFeatures.player_animator ? resolveVersion("bendylib_version", "bendylib") : "",
-    kubejs       : resolveVersion("kubejs_version", "kubejs"),
-    rhino        : resolveVersion("rhino_version", "rhino"),
-    architectury : resolveVersion("architectury_version", "architectury"),
-    mixinExtras  : resolveVersion("mixin_extras_version", "mixin_extras")
+    registrate               : expectStringFromTable(versionsTable, "registrate", "versions"),
+    jei                      : resolveVersion("jei_version", "jei"),
+    curios                   : resolveVersion("curios_version", "curios"),
+    geckolib                 : resolveVersion("geckolib_version", "geckolib"),
+    playerAnimator           : resolveVersion("player_animator_version", "player_animator"),
+    bendylib                 : resolveVersion("bendylib_version", "bendylib"),
+    kubejs                   : resolveVersion("kubejs_version", "kubejs"),
+    rhino                    : resolveVersion("rhino_version", "rhino"),
+    architectury             : resolveVersion("architectury_version", "architectury"),
+    mixinExtras              : resolveVersion("mixin_extras_version", "mixin_extras"),
+    jeiVersionRange          : resolveVersion("jei_version", "jei"),
+    curiosVersionRange       : resolveVersion("curios_version", "curios"),
+    geckolibVersionRange     : resolveVersion("geckolib_version", "geckolib"),
+    playerAnimatorVersionRange: resolveVersion("player_animator_version", "player_animator")
 ]
 
 def compatConfig = new ConfigObject()
@@ -216,15 +300,16 @@ compatConfig.putAll([
     mod_credits         : template.credits,
     issue_tracker_url   : template.issueTracker,
     maven_group         : template.group,
+    rendered_archive_stem: renderedArchiveStem,
     maven_url           : template.mavenUrl,
     maven_user          : "",
     maven_passwd        : "",
-    mc_version          : expectStringFromTable(platformTable, "mc_version", "platform"),
-    mc_range            : expectStringFromTable(platformTable, "mc_range", "platform"),
-    forge_version       : expectStringFromTable(platformTable, "forge_version", "platform"),
-    forge_range         : expectStringFromTable(platformTable, "forge_range", "platform"),
+    mc_version          : mcVersion,
+    mc_range            : mcRange,
+    forge_version       : forgeVersion,
+    forge_range         : forgeRange,
     mc_user             : "",
-    java                : expectStringFromTable(platformTable, "java", "platform"),
+    java                : javaVersion,
     cf_project          : template.curseforgeProject.toString(),
     modrinth_project    : template.modrinthProject,
     release_type        : template.releaseType,
