@@ -11,13 +11,14 @@ buildscript {
     dependencies {
         classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.+"
         classpath 'org.spongepowered:mixingradle:0.7.+'
+        classpath "org.tomlj:tomlj:1.1.1"
     }
 }
 
 
 plugins {
     id "com.modrinth.minotaur" version "2.+"
-    id 'net.neoforged.gradle' version '[6.0.13, 6.2)'
+    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
     id 'org.parchmentmc.librarian.forgegradle' version '1.+'
 }
 
@@ -25,27 +26,22 @@ apply plugin: 'idea'
 apply plugin: 'maven-publish'
 apply plugin: "com.matthewprenger.cursegradle"
 apply plugin: 'org.spongepowered.mixin'
+apply from: 'gradle/template-config.gradle'
 
 jarJar.enable()
 
-//Make the result of jarJar the default.
+// Publish the development jar as the default Maven artifact and keep jarJar for runtime distribution.
 tasks.jarJar.configure {
-    it.archiveClassifier.set("")
+    it.archiveClassifier.set("runtime")
     finalizedBy("reobfJarJar")
 }
 
 tasks.jar.configure {
-    it.archiveClassifier.set("slim")
+    it.archiveClassifier.set("")
 }
 
-ext.configFile = file("build.txt")
-configFile.withReader {
-    def prop = new Properties()
-    prop.load(it)
-    project.ext.config = new ConfigSlurper().parse(prop)
-    project.ext.hasConfig = { key ->
-        return config.isSet(key);
-    }
+tasks.matching { it.name == "reobfJar" }.configureEach {
+    enabled = false
 }
 
 version = config.mod_version
@@ -54,7 +50,7 @@ base {
     archivesName = "${config.archive_name}-${config.mc_version}"
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(config.java))
 
 mixin {
     add sourceSets.main, "${config.mod_id}.refmap.json"
@@ -208,7 +204,8 @@ repositories {
         }
     }
     maven {
-        url "https://maven.latvian.dev/releases"
+        name = "Lat's Maven"
+        url = "https://maven.latvian.dev/releases"
         content {
             includeGroup "dev.latvian.mods"
             includeGroup "dev.latvian.apps"
@@ -231,14 +228,14 @@ repositories {
 }
 
 dependencies {
-    minecraft "net.neoforged:forge:${config.mc_version}-${config.forge_version}"
+    minecraft "net.minecraftforge:forge:${config.mc_version}-${config.forge_version}"
     compileOnly(annotationProcessor("com.github.llamalad7.mixinextras:mixinextras-common:${config.mixin_extras_version}"))
 
-    compileOnly fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
     jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.20,MC1.21)")
 
     if (hasConfig("jei_version") && !config.jei_version.isEmpty()) {
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-server-api:${config.jei_version}")
+        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-common-api:${config.jei_version}")
         compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge-api:${config.jei_version}")
         runtimeOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge:${config.jei_version}")
     }
@@ -378,13 +375,22 @@ dependencies {
 }
 
 def resourceTargets = ['META-INF/mods.toml', 'pack.mcmeta']
+def optionalTemplateProperty = { key ->
+    def value = hasConfig(key) ? config.getProperty(key) : ""
+    value != null ? value : ""
+}
 def replaceProperties = [
         minecraft_version: config.mc_version, minecraft_version_range: config.mc_range,
         forge_version    : "${config.mc_version}-${config.forge_version}", forge_version_range: config.forge_range,
         mod_id           : config.mod_id, mod_name: config.mod_name, mod_license: config.mod_license, mod_version: config.mod_version,
         mod_authors      : config.mod_authors, mod_description: config.mod_description,
         modrinth_project : config.modrinth_project,
-        issue_tracker_url: config.issue_tracker_url, mod_credits: config.mod_credits
+        issue_tracker_url: config.issue_tracker_url, mod_credits: config.mod_credits,
+        curios_version   : optionalTemplateProperty("curios_version"),
+        geckolib_version : optionalTemplateProperty("geckolib_version"),
+        playeranimator_version: optionalTemplateProperty("playeranimator_version"),
+        citadel_version  : optionalTemplateProperty("citadel_version"),
+        jei_version      : optionalTemplateProperty("jei_version")
 ]
 processResources {
     inputs.properties replaceProperties
@@ -408,24 +414,39 @@ jar {
                 "MixinConfigs"            : "mixins.${config.mod_id}.json"
         ])
     }
-    archiveClassifier.set('slim')
+    archiveClassifier.set('')
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.withType(Javadoc).configureEach {
+    source = sourceSets.main.allJava
+    classpath = sourceSets.main.compileClasspath
+    options.encoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addBooleanOption('html5', true)
+}
+
+task srcJar(type: Jar, dependsOn: classes) {
+    from sourceSets.main.allJava
+    archiveClassifier = 'sources'
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
 }
 
 publishing {
     publications {
         mavenJava(MavenPublication) {
-//            artifact jar
             from components.java
+            artifact(tasks.named("srcJar"))
+            artifact(tasks.named("javadocJar"))
             artifact(tasks.jarJar)
             artifactId = config.mod_id
-
-            pom {
-                packaging = 'pom'
-                withXml {
-                    def root = asNode()
-                    root.dependencies.replaceNode {}
-                }
-            }
         }
     }
     repositories {
@@ -461,14 +482,10 @@ task deobfJar(type: Jar) {
     }
 }
 
-task srcJar(type: Jar, dependsOn: classes) {
-    from sourceSets.main.allJava
-    archiveClassifier = 'sources'
-}
-
 artifacts {
     archives deobfJar
     archives srcJar
+    archives javadocJar
 }
 
 modrinth {
@@ -476,9 +493,9 @@ modrinth {
     projectId = config.modrinth_project
     versionNumber = config.mod_version
     versionType = config.release_type
-    uploadFile = jar
+    uploadFile = jarJar
     gameVersions = [config.mc_version]
-    loaders = ['Forge', 'NeoForge']
+    loaders = ['Forge']
     dependencies {
         def mods = config.required_mods.split(";")
         if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
@@ -543,8 +560,7 @@ curseforge {
         releaseType = config.release_type
         addGameVersion config.mc_version
         addGameVersion "Forge"
-        addGameVersion "NeoForge"
-        mainArtifact(jar) {
+        mainArtifact(jarJar) {
             displayName = "[${config.mc_version}] ${config.mod_name} - ${config.mod_version}"
         }
 
@@ -645,13 +661,17 @@ def reobfArtifact = artifacts.add('default', reobfFile) {
 }
 
 jar.finalizedBy('reobfJar')
-publish.dependsOn('reobfJar')
+publish.dependsOn('reobfJarJar')
 
 build.dependsOn signJar
 
 tasks.register('buildAndUploadMod') {
     group = "upload"
-    dependsOn "curseforge${config.cf_project}", 'modrinth'
+    def curseforgeTaskName = "curseforge${config.cf_project}"
+    if (tasks.names.contains(curseforgeTaskName)) {
+        dependsOn curseforgeTaskName
+    }
+    dependsOn 'modrinth'
 
     doLast {
         println "Upload complete."
@@ -659,8 +679,11 @@ tasks.register('buildAndUploadMod') {
 }
 
 afterEvaluate {
+    def curseforgeTaskName = "curseforge${config.cf_project}"
     if (!config.maven_url.isEmpty()) {
-        tasks["curseforge${config.cf_project}"].dependsOn.add(publish)
+        if (tasks.names.contains(curseforgeTaskName)) {
+            tasks[curseforgeTaskName].dependsOn.add(publish)
+        }
         tasks["modrinth"].dependsOn.add(publish)
     }
 }
