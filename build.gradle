@@ -455,6 +455,12 @@ tasks.withType(Javadoc).configureEach {
     options.addBooleanOption('html5', true)
 }
 
+// Gradle module metadata records Forge-mapped dependency versions, which are not
+// suitable for downstream fg.deobf consumption. Publish a cleaned Maven POM instead.
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
+}
+
 task srcJar(type: Jar, dependsOn: classes) {
     from sourceSets.main.allJava
     archiveClassifier = 'sources'
@@ -475,6 +481,47 @@ publishing {
             artifact(tasks.named("javadocJar"))
             artifact(tasks.jarJar)
             artifactId = template.modId
+
+            pom.withXml {
+                def root = asNode()
+                def dependenciesNode = root.dependencies ? root.dependencies[0] : root.appendNode('dependencies')
+                def publishedDependencies = dependenciesNode.dependency.collect { dependencyNode ->
+                    def groupId = dependencyNode.groupId.text()
+                    def artifactId = dependencyNode.artifactId.text()
+                    def version = dependencyNode.version.text()
+                    def scope = dependencyNode.scope.text()
+
+                    if (groupId == "_all") {
+                        return null
+                    }
+                    if (groupId == "net.minecraftforge" && artifactId == "forge") {
+                        return null
+                    }
+
+                    def mappedSuffix = version.indexOf("_mapped_")
+                    if (mappedSuffix >= 0) {
+                        version = version.substring(0, mappedSuffix)
+                    }
+
+                    return [
+                            groupId   : groupId,
+                            artifactId: artifactId,
+                            version   : version,
+                            scope     : scope
+                    ]
+                }.findAll { it != null }
+
+                dependenciesNode.children().clear()
+                publishedDependencies.each { dependencySpec ->
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', dependencySpec.groupId)
+                    dependencyNode.appendNode('artifactId', dependencySpec.artifactId)
+                    dependencyNode.appendNode('version', dependencySpec.version)
+                    if (dependencySpec.scope) {
+                        dependencyNode.appendNode('scope', dependencySpec.scope)
+                    }
+                }
+            }
         }
     }
     repositories {
@@ -491,6 +538,16 @@ publishing {
                 }
             }
         }
+    }
+}
+
+def localMavenRepository = System.getProperty("maven.repo.local") ?: "${System.getProperty("user.home")}/.m2/repository"
+def localPublicationDirectory = file("${localMavenRepository}/${template.group.replace('.', '/')}/${template.modId}/${template.finalVersion}")
+def localPublicationModuleMetadata = file("${localPublicationDirectory}/${template.modId}-${template.finalVersion}.module")
+
+tasks.named("publishMavenJavaPublicationToMavenLocal").configure {
+    doFirst {
+        delete(localPublicationModuleMetadata)
     }
 }
 

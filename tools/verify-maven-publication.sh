@@ -19,13 +19,19 @@ LOCAL_M2="${HOME}/.m2/repository"
 ARTIFACT_DIR="${LOCAL_M2}/${GROUP_PATH}"
 
 cd "${ROOT}"
+rm -rf "${ARTIFACT_DIR}"
 bash ./gradlew publishToMavenLocal --no-daemon "-Dmaven.repo.local=${LOCAL_M2}"
 
 test -f "${ARTIFACT_DIR}/example-0.0.1.jar"
 test -f "${ARTIFACT_DIR}/example-0.0.1-sources.jar"
 test -f "${ARTIFACT_DIR}/example-0.0.1-javadoc.jar"
 test -f "${ARTIFACT_DIR}/example-0.0.1-runtime.jar"
+test ! -f "${ARTIFACT_DIR}/example-0.0.1.module"
 
 jar tf "${ARTIFACT_DIR}/example-0.0.1-javadoc.jar" | rg "org/pickaid/modid/Example.html"
 jar tf "${ARTIFACT_DIR}/example-0.0.1-sources.jar" | rg "org/pickaid/modid/Example.java"
 rg "<artifactId>Registrate</artifactId>" "${ARTIFACT_DIR}/example-0.0.1.pom"
+if rg "_mapped_" "${ARTIFACT_DIR}/example-0.0.1.pom"; then
+    echo "Published POM must not leak mapped dependency versions" >&2
+    exit 1
+fi
