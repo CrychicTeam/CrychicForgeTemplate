@@ -34,6 +34,15 @@ def enabledFeatures = project.ext.enabledFeatures
 def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
 def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
+def hasModrinthTarget = !template.modrinthProject.isBlank()
+def hasCurseforgeTarget = template.curseforgeProject > 0L
+def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
+
+def requireRuntimeUploadArtifact = { Task task, String taskName ->
+    if (tasks.named("jarJar", Jar).get().archiveClassifier.get() != "runtime") {
+        throw new GradleException("${taskName} must upload the runtime jar")
+    }
+}
 
 jarJar.enable()
 
@@ -508,11 +517,11 @@ artifacts {
 }
 
 modrinth {
-    token = System.env.MODRINTH_TOKEN != null ? System.env.MODRINTH_TOKEN : "NONE"
+    token = System.env.MODRINTH_TOKEN ?: "NONE"
     projectId = template.modrinthProject
     versionNumber = template.finalVersion
     versionType = template.releaseType
-    uploadFile = jarJar
+    uploadFile = tasks.named("jarJar", Jar).get().archiveFile.get().asFile
     gameVersions = [templatePlatform.mcVersion]
     loaders = ['Forge']
     dependencies {
@@ -571,9 +580,9 @@ modrinth {
 }
 
 curseforge {
-    apiKey = System.env.CURSEFORGE_TOKEN != null ? System.env.CURSEFORGE_TOKEN : "NONE"
+    apiKey = System.env.CURSEFORGE_TOKEN ?: "NONE"
     project {
-        id = template.curseforgeProject.toString()
+        id = "${template.curseforgeProject}"
         changelogType = 'html'
         changelog = ""
         releaseType = template.releaseType
@@ -684,26 +693,61 @@ publish.dependsOn('reobfJarJar')
 
 build.dependsOn signJar
 
-tasks.register('buildAndUploadMod') {
+def validateUploadConfiguration = tasks.register('validateUploadConfiguration') {
     group = "upload"
-    def curseforgeTaskName = "curseforge${template.curseforgeProject}"
-    if (tasks.names.contains(curseforgeTaskName)) {
-        dependsOn curseforgeTaskName
-    }
-    dependsOn 'modrinth'
 
     doLast {
-        println "Upload complete."
+        if (!hasModrinthTarget && !hasCurseforgeTarget) {
+            throw new GradleException("At least one upload platform must be configured")
+        }
+
+        requireRuntimeUploadArtifact(delegate as Task, "buildAndUploadMod")
+
+        if (!(template.releaseType in ["alpha", "beta", "release"])) {
+            throw new GradleException("release_type must be one of alpha, beta, release")
+        }
+
+        if (hasModrinthTarget && !(System.env.MODRINTH_TOKEN ?: "").trim()) {
+            throw new GradleException("MODRINTH_TOKEN is required when modrinth_project is configured")
+        }
+
+        if (hasCurseforgeTarget && !(System.env.CURSEFORGE_TOKEN ?: "").trim()) {
+            throw new GradleException("CURSEFORGE_TOKEN is required when curseforge_project is configured")
+        }
+    }
+}
+
+if (hasModrinthTarget) {
+    tasks.named("modrinth").configure {
+        dependsOn(validateUploadConfiguration)
+    }
+}
+
+if (hasCurseforgeTarget) {
+    tasks.matching { it.name == curseforgeUploadTaskName }.configureEach {
+        dependsOn(validateUploadConfiguration)
+    }
+}
+
+tasks.register('buildAndUploadMod') {
+    group = "upload"
+
+    dependsOn validateUploadConfiguration
+
+    if (hasModrinthTarget) {
+        dependsOn 'modrinth'
+    }
+    if (hasCurseforgeTarget) {
+        dependsOn curseforgeUploadTaskName
     }
 }
 
 afterEvaluate {
-    def curseforgeTaskName = "curseforge${template.curseforgeProject}"
-    if (!template.mavenUrl.isEmpty()) {
-        if (tasks.names.contains(curseforgeTaskName)) {
-            tasks[curseforgeTaskName].dependsOn.add(publish)
-        }
+    if (!template.mavenUrl.isBlank() && hasModrinthTarget) {
         tasks["modrinth"].dependsOn.add(publish)
+    }
+    if (!template.mavenUrl.isBlank() && hasCurseforgeTarget) {
+        tasks[curseforgeUploadTaskName].dependsOn.add(publish)
     }
 }
 

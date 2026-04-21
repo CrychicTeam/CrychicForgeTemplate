@@ -8,7 +8,11 @@ trap 'rm -rf "${TMP_ROOT}"' EXIT
 cp -R "${ROOT}" "${TMP_ROOT}/repo"
 rm -rf "${TMP_ROOT}/repo/.gradle" "${TMP_ROOT}/repo/build" "${TMP_ROOT}/repo/.git"
 
-cat > "${TMP_ROOT}/repo/template.toml" <<'EOF'
+write_template() {
+    local modrinth_project="$1"
+    local curseforge_project="$2"
+
+    cat > "${TMP_ROOT}/repo/template.toml" <<EOF
 schema_version = 1
 template_version = "1.20.1-template-1.0.0"
 
@@ -28,13 +32,28 @@ kubejs = true
 
 [publish]
 maven_url = ""
-curseforge_project = 0
-modrinth_project = ""
+curseforge_project = ${curseforge_project}
+modrinth_project = "${modrinth_project}"
 release_type = "alpha"
 
 [naming]
 archive_name = "example"
 EOF
+}
+
+expect_upload_failure() {
+    local log_path="$1"
+    local expected_message="$2"
+
+    if (cd "${TMP_ROOT}/repo" && bash ./gradlew buildAndUploadMod --no-daemon > "${log_path}" 2>&1); then
+        echo "Expected buildAndUploadMod to fail: ${expected_message}" >&2
+        exit 1
+    fi
+
+    rg "${expected_message}" "${log_path}"
+}
+
+write_template "" 0
 
 if (cd "${TMP_ROOT}/repo" && bash ./gradlew build --no-daemon > "${TMP_ROOT}/build.log" 2>&1); then
     rg "BUILD SUCCESSFUL" "${TMP_ROOT}/build.log"
@@ -43,9 +62,10 @@ else
     exit 1
 fi
 
-if (cd "${TMP_ROOT}/repo" && bash ./gradlew buildAndUploadMod --no-daemon > "${TMP_ROOT}/upload.log" 2>&1); then
-    echo "Expected buildAndUploadMod to fail without any configured platform" >&2
-    exit 1
-fi
+expect_upload_failure "${TMP_ROOT}/upload-no-platform.log" "At least one upload platform must be configured"
 
-rg "At least one upload platform must be configured" "${TMP_ROOT}/upload.log"
+write_template "example-project" 0
+expect_upload_failure "${TMP_ROOT}/upload-modrinth.log" "MODRINTH_TOKEN is required when modrinth_project is configured"
+
+write_template "" 123456
+expect_upload_failure "${TMP_ROOT}/upload-curseforge.log" "CURSEFORGE_TOKEN is required when curseforge_project is configured"
