@@ -1,421 +1,265 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# Minecraft NeoForge Mod 开发模板
+# Minecraft Forge Mod 开发模板
 
 [English Version](README_EN.md) | 中文版
 
-这是一个用于创建 Minecraft 1.20.1+ NeoForge Mod 的现代化开发模板，集成了常用的库和工具，简化了 Mod 开发流程。
+这是一个面向 Minecraft 1.20.1 Forge 的模板。
 
-## 功能特性
+它已经把常见的项目骨架、可选库接入、Maven 发布、`runtime` 分发包、Modrinth 和 CurseForge 上传规则整理好了。你改完 `template.toml` 和包名，就可以直接开始写模组。
 
--   支持 Minecraft 1.20.1+ 和 NeoForge
--   集成多种流行的 Mod 开发库（JEI、GeckoLib、Curios 等）
--   自动化构建和发布流程
--   支持 Modrinth 和 CurseForge 发布
--   灵活的依赖管理系统
--   完整的开发环境配置
-
-## 环境要求
-
--   **Java 17 JDK** - 必须安装 Java 17 开发工具包
--   **IntelliJ IDEA** - 推荐使用 IntelliJ IDEA 作为开发环境
--   **Git** - 版本控制工具
+`build.txt` 已经退场。现在只认 `template.toml`。
 
 ## 快速开始
 
 ### 1. 获取模板
-
-选择以下方式之一获取模板：
-
-**方式一：下载 ZIP 文件**
-
-1. 点击页面右上角的 "Code" 按钮
-2. 选择 "Download ZIP"
-3. 解压到你的开发目录
-
-**方式二：克隆仓库**
 
 ```bash
 git clone [仓库地址]
 cd PickAIDForgeTemplate
 ```
 
-### 2. 项目配置
+### 2. 修改 `template.toml`
 
-打开 `build.txt` 文件，修改以下必要信息：
+最少先改这几块：
 
-```properties
-# Mod 基本信息
-mod_id=你的mod的id
-mod_name=你的Mod名称
-mod_description=Mod描述
-mod_authors=作者名称
-mod_license=MIT
+```toml
+schema_version = 1
+template_version = "1.20.1-template-1.0.0"
 
-# Maven 仓库配置（可选）
-maven_group=com.yourname.yourmod
-maven_url=你的maven仓库地址
+[mod]
+mod_id = "yourmod"
+mod_name = "Your Mod"
+version = "1.0.0"
+version_suffix = ""
+group = "com.yourname.yourmod"
+authors = ["Your Name"]
+license = "MIT"
+description = "What this mod does."
 
-# 项目 ID（可选，用于自动发布）
-cf_project=CurseForge项目ID
-modrinth_project=Modrinth项目ID
+[features]
+jei = false
+curios = false
+geckolib = false
+player_animator = false
+kubejs = true
+mixin_extras = true
+
+[publish]
+maven_url = "https://your-maven.example/releases"
+curseforge_project = 0
+modrinth_project = ""
+release_type = "alpha"
+
+[naming]
+archive_name = "yourmod"
+jar_format = "{archive_name}-{mc_version}-{version}"
 ```
 
-### 3. 修改源代码文件
+### 3. 改掉模板占位路径
 
-**重要：必须修改以下文件才能正常开发你的Mod**
+把下面这些占位内容换成你自己的：
 
-#### 修改包结构和主类
+1. `src/main/java/org/pickaid/modid/`
+2. `src/main/resources/assets/modid/`
+3. `src/main/resources/mixins.modid.json`
+4. `src/main/java/org/pickaid/modid/Example.java`
 
-1. **重命名包结构**：
-   - 将 `src/main/java/org/pickaid/modid/` 目录重命名为你的包结构
-   - 例如：`src/main/java/com/yourname/yourmod/`
+如果你不用 Mixin，可以保留空的配置；如果要用，就把包路径和文件名一起改掉。
 
-2. **修改主类文件**：
-   编辑 `Example.java`（或重命名为你的主类名）：
-   ```java
-   package com.yourname.yourmod; // 修改包名
-   
-   import net.minecraft.resources.ResourceLocation;
-   import net.minecraftforge.fml.common.Mod;
-   
-   @Mod(YourModName.MOD_ID)
-   public class YourModName // 修改类名
-   {
-       public static final String MOD_ID = "yourmodid"; // 修改为你的mod_id
-       public static ResourceLocation id(String path)
-       {
-           return new ResourceLocation(MOD_ID, path);
-       }
-   }
-   ```
-
-#### 修改Mixin配置（如果使用Mixin）
-
-1. **重命名Mixin目录**：
-   - 将 `src/main/java/org/pickaid/modid/mixins/` 重命名为你的包路径下的mixins
-
-2. **修改Mixin配置文件**：
-   编辑 `src/main/resources/mixins.modid.json`：
-   ```json
-   {
-     "required": true,
-     "priority": 800,
-     "minVersion": "0.8",
-     "package": "com.yourname.yourmod.mixins", // 修改包路径
-     "refmap": "yourmod.refmap.json", // 修改refmap名称
-     "compatibilityLevel": "JAVA_17",
-     "mixins": [],
-     "client": [],
-     "server": []
-   }
-   ```
-
-3. **重命名Mixin配置文件**：
-   - 将 `mixins.modid.json` 重命名为 `mixins.yourmodid.json`
-
-#### 修改META-INF配置
-
-**重要：mods.toml 已经过优化，通常不需要手动修改**
-
-模板中的 `src/main/resources/META-INF/mods.toml` 文件已经过现代化改进：
-
-- **自动变量替换**：所有配置都会从 `build.txt` 自动填充
-- **清晰的结构**：分为核心依赖和可选依赖两部分
-- **正确的版本范围**：依赖项使用正确的版本号格式
-- **中文注释**：便于理解各个配置的作用
-
-如需启用可选依赖（如JEI、Curios等），只需：
-1. 在 `build.txt` 中取消注释相应的版本配置
-2. 在 `mods.toml` 中取消注释对应的依赖项
-
-**重要提示**：
-- mods.toml 现在使用变量替换，无需手动编辑版本号
-- 所有版本号都在 `build.txt` 中统一管理
-- 确保启用依赖时，build.gradle 和 mods.toml 都要同步操作
-
-**accesstransformer.cfg 文件**：
-- 用于访问转换器配置，通常保持空白即可
-- 如需修改私有字段或方法，在此文件中添加AT规则
-
-#### 修改资源文件夹
-
-1. **重命名assets文件夹**：
-   - 将 `src/main/resources/assets/modid/` 重命名为 `src/main/resources/assets/yourmodid/`
-
-2. **可选：修改mod图标**：
-   - 在 `src/main/resources/` 目录下修改 `icon.png` 作为mod图标（64x64像素）
-
-### 4. 开发环境设置
-
-1. 使用 IntelliJ IDEA 打开项目根目录下的 `build.gradle` 文件
-2. 选择 "Open as Project"
-3. 等待 Gradle 同步完成
-4. 运行 `./gradlew genEclipseRuns` 或 `./gradlew genIntellijRuns` 生成运行配置
-
-### 5. 快速检查清单
-
-在开始开发前，确保你已完成以下所有步骤：
-
-- [ ] 修改 `build.txt` 中的基本信息（mod_id、mod_name、mod_authors等）
-- [ ] 重命名Java包结构（从 `org.pickaid.modid` 改为你的包名）
-- [ ] 修改主类文件中的包名、类名和MOD_ID
-- [ ] 重命名并修改Mixin配置文件 `mixins.modid.json`
-- [ ] 更新Mixin配置中的包路径
-- [ ] 检查 `mods.toml` 配置（通常自动生成，无需修改）
-- [ ] 可选：在 `mods.toml` 中启用需要的依赖项
-- [ ] 重命名assets资源文件夹（从 `modid` 改为你的mod id）
-- [ ] 可选：添加mod图标文件
-- [ ] 运行 `./gradlew build` 确保项目能正常编译
-
-## 环境变量配置
-
-本模板支持通过环境变量配置敏感信息，如 Maven 仓库凭据和发布令牌。
-
-### Maven 仓库配置
-
-支持以下环境变量（优先级高于配置文件）：
-
--   `MAVEN_URL` - Maven 仓库地址
--   `MAVEN_USER` - Maven 用户名
--   `MAVEN_PASSWORD` - Maven 密码
-
-### 发布配置
-
--   `MODRINTH_TOKEN` - Modrinth 发布令牌
--   `CURSEFORGE_TOKEN` - CurseForge 发布令牌
-
-### 环境变量设置方法
-
-#### Windows 系统
-
-**方法一：通过系统设置**
-
-1. 按 `Win + R` 键打开运行对话框
-2. 输入 `rundll32 sysdm.cpl,EditEnvironmentVariables` 并按回车
-3. 在 "用户变量" 或 "系统变量" 区域点击 "新建"
-4. 输入变量名和变量值
-5. 点击 "确定" 保存设置
-6. 重启计算机使设置生效
-
-**方法二：通过命令行（临时）**
-
-```cmd
-set MAVEN_USER=你的用户名
-set MAVEN_PASSWORD=你的密码
-set MODRINTH_TOKEN=你的token
-```
-
-**方法三：通过 PowerShell（持久）**
-
-```powershell
-[Environment]::SetEnvironmentVariable("MAVEN_USER", "你的用户名", "User")
-[Environment]::SetEnvironmentVariable("MAVEN_PASSWORD", "你的密码", "User")
-[Environment]::SetEnvironmentVariable("MODRINTH_TOKEN", "你的token", "User")
-```
-
-#### Linux 系统
-
-**方法一：临时设置**
+### 4. 导入 IDEA 并生成运行配置
 
 ```bash
-export MAVEN_USER="你的用户名"
-export MAVEN_PASSWORD="你的密码"
-export MODRINTH_TOKEN="你的token"
-```
-
-**方法二：永久设置**
-编辑 `~/.bashrc` 或 `~/.profile` 文件：
-
-```bash
-echo 'export MAVEN_USER="你的用户名"' >> ~/.bashrc
-echo 'export MAVEN_PASSWORD="你的密码"' >> ~/.bashrc
-echo 'export MODRINTH_TOKEN="你的token"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-#### macOS 系统
-
-**方法一：临时设置**
-
-```bash
-export MAVEN_USER="你的用户名"
-export MAVEN_PASSWORD="你的密码"
-export MODRINTH_TOKEN="你的token"
-```
-
-**方法二：永久设置**
-编辑 `~/.zshrc`（或 `~/.bash_profile`，取决于你的 shell）：
-
-```bash
-echo 'export MAVEN_USER="你的用户名"' >> ~/.zshrc
-echo 'export MAVEN_PASSWORD="你的密码"' >> ~/.zshrc
-echo 'export MODRINTH_TOKEN="你的token"' >> ~/.zshrc
-source ~/.zshrc
-```
-
-## 依赖库配置
-
-模板支持多种常用的 Mod 开发库，在 `build.txt` 中取消注释相应配置即可启用：
-
-### JEI（Just Enough Items）集成
-
-```properties
-jei_version=15.2.0.27
-```
-
-### GeckoLib 动画库
-
-```properties
-geckolib_version=4.4.9
-```
-
-### Curios API 饰品系统
-
-```properties
-curios_version=5.9.1+1.20.1
-```
-
-### Player Animator 玩家动画
-
-```properties
-playeranimator_version=1.0.2+1.20
-```
-
-### Citadel 前置库
-
-```properties
-citadel_version=2.5.4
-```
-
-### 其他库
-
-```properties
-# L2 系列库
-l2_library_version=2.5.1-slim
-l2damagetracker_version=0.3.7
-l2serial_version=1.2.2
-
-# Mixin 扩展
-mixin_extras_version=0.2.0-beta.8
-```
-
-## 构建和发布
-
-### 本地构建
-
-```bash
-# 构建 Mod
+./gradlew genIntellijRuns
 ./gradlew build
-
-# 构建并签名（需要配置签名环境变量）
-./gradlew signJar
 ```
 
-### 自动发布
+## `template.toml` 怎么写
+
+### `[mod]`
+
+这里放模组本身的信息。
+
+- `mod_id` 是模组 id。
+- `mod_name` 是显示名称。
+- `version` 是基础版本。
+- `version_suffix` 可选，比如 `hotfix.2`。
+- `group` 是 Maven group。
+- `authors` 不能为空。
+- `description` 会写进 `mods.toml`。
+
+如果你把 `version = "1.0.0"`、`version_suffix = "hotfix.2"`，最终版本就是 `1.0.0-hotfix.2`。
+
+### `[features]`
+
+这里决定模板是否接入常见库：
+
+- `jei`
+- `curios`
+- `geckolib`
+- `player_animator`
+- `kubejs`
+- `mixin_extras`
+
+布尔值写 `true` 或 `false`。
+
+### `[overrides]`
+
+这里用来覆盖模板默认版本。
+
+只有在对应 feature 已开启时，相关 override 才允许出现。当前支持：
+
+- `jei_version`
+- `curios_version`
+- `geckolib_version`
+- `player_animator_version`
+- `bendylib_version`
+- `kubejs_version`
+- `rhino_version`
+- `architectury_version`
+- `mixin_extras_version`
+
+`player_animator` 如果开了，通常也要一起关心 `bendylib_version`。
+`kubejs` 这组会一起牵涉 `kubejs_version`、`rhino_version`、`architectury_version`。
+
+### `[publish]`
+
+这里控制 Maven 和平台上传。
+
+- `maven_url` 为空时，不做远端 Maven 发布。
+- `curseforge_project = 0` 表示不上传 CurseForge。
+- `modrinth_project = ""` 表示不上传 Modrinth。
+- `release_type` 只接受 `alpha`、`beta`、`release`。
+
+`buildAndUploadMod` 至少要有一个平台目标。某个平台留空，就等于这个平台不参与上传。
+
+### `[naming]`
+
+- `archive_name` 控制基础 artifact 名。
+- `jar_format` 控制 jar 文件名格式。
+
+支持的 token 只有这些：
+
+- `{archive_name}`
+- `{mod_id}`
+- `{version}`
+- `{mc_version}`
+- `{loader}`
+
+默认格式是：
+
+```toml
+jar_format = "{archive_name}-{mc_version}-{version}"
+```
+
+## 发布出来的东西是什么
+
+这个模板会发布四类文件：
+
+- 默认 artifact：开发用主 jar
+- `runtime` 分类 artifact：分发用打包 jar
+- `sources` jar
+- `javadoc` jar
+
+需要记住的是：
+
+- 默认 Maven 坐标是开发 jar，不是分发 jar。
+- `runtime` jar 才是上传到 Modrinth 和 CurseForge 的那一个。
+- Modrinth 和 CurseForge 上传时都会强制走 `runtime` jar。
+
+## 从别的模组里怎么引用
+
+如果你把这个模板产出的模组发布到 Maven，下游通常这样写：
+
+```gradle
+repositories {
+    maven { url = "https://your-maven.example/releases" }
+}
+
+dependencies {
+    implementation "com.yourname.yourmod:yourmod:1.0.0"
+}
+```
+
+这里不要再包一层 `fg.deobf(...)`。默认发布物本来就是开发用 jar。
+
+如果你只是想在运行时拿到打包版，可以再用 `runtime` 分类：
+
+```gradle
+runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
+```
+
+如果你的项目直接引用了这个模组暴露出来的某些可选库 API，比如 JEI 或 Curios，自家项目里还是应该明确声明这些 API 依赖。模板发布的 POM 会带基础依赖信息，但不会替你决定源码层该依赖什么。
+
+## 环境变量
+
+构建和发布会优先读取这些环境变量：
+
+- `MAVEN_URL`
+- `MAVEN_USER`
+- `MAVEN_PASSWORD`
+- `MODRINTH_TOKEN`
+- `CURSEFORGE_TOKEN`
+
+例如：
 
 ```bash
-# 发布到 Modrinth 和 CurseForge
+export MAVEN_USER="your-user"
+export MAVEN_PASSWORD="your-password"
+export MODRINTH_TOKEN="your-token"
+export CURSEFORGE_TOKEN="your-token"
+```
+
+## 常用命令
+
+```bash
+./gradlew build
+./gradlew runClient
+./gradlew runServer
+./gradlew runData
+./gradlew genIntellijRuns
+./gradlew publishToMavenLocal
 ./gradlew buildAndUploadMod
 ```
 
-### 版本管理
+## 常见问题
 
--   将 `formal_version` 设置为 `true` 时，每次构建会自动递增版本号
--   将 `formal_version` 设置为 `false` 时，使用配置文件中的固定版本号
+### 发现还在读 `build.txt`
 
-## 开发提示
+不会。
 
-### 运行配置
+如果根目录里还有旧的 `build.txt`，构建会直接停下，提醒你迁移到 `template.toml`。
 
-模板提供了以下运行配置：
+### 本地 Maven 里要拿哪个坐标
 
--   **client** - 客户端测试环境
--   **server** - 服务器测试环境
--   **data** - 数据生成工具
--   **gameTestServer** - 游戏测试服务器
+开发依赖拿默认坐标：
 
-### 目录结构
-
-```
-src/main/
-├── java/                 # Java 源代码
-├── resources/
-│   ├── META-INF/        # Mod 元数据
-│   ├── assets/          # 资源文件（贴图、模型等）
-│   └── data/            # 数据文件（配方、战利品表等）
-└── generated/           # 自动生成的数据文件
+```gradle
+implementation "group:modid:version"
 ```
 
-### 开发工具
+分发包或运行时打包依赖拿：
 
--   使用 `./gradlew runClient` 启动客户端测试
--   使用 `./gradlew runServer` 启动服务器测试
--   使用 `./gradlew runData` 生成数据文件
+```gradle
+runtimeOnly "group:modid:version:runtime"
+```
 
-## 故障排除
+### 上传失败
 
-### 常见问题
+先看这几件事：
 
-1. **构建失败：找不到 Java 17**
+1. `modrinth_project` 或 `curseforge_project` 是否至少配了一个。
+2. 对应 token 环境变量是否真的存在。
+3. `release_type` 是否是 `alpha`、`beta`、`release` 之一。
 
-    - 确保安装了 Java 17 JDK
-    - 检查 `JAVA_HOME` 环境变量设置
+### 资源或 Mixin 没生效
 
-2. **Gradle 同步失败**
+通常就是模板占位路径没改干净。重点检查：
 
-    - 检查网络连接
-    - 尝试清理 Gradle 缓存：`./gradlew clean`
-
-3. **运行配置丢失**
-
-    - 重新生成运行配置：`./gradlew genIntellijRuns`
-
-4. **Mixin 错误：找不到类或包**
-    - 检查 `mixins.yourmodid.json` 中的包路径是否正确
-    - 确保Mixin类的包名与配置文件中的包名一致
-    - 验证 `build.gradle` 中的Mixin配置是否正确
-
-5. **资源文件加载失败**
-    - 确保 `assets/yourmodid/` 文件夹名称与你的mod_id一致
-    - 检查资源文件路径是否正确
-
-6. **主类注解错误**
-    - 确保 `@Mod` 注解中的值与 `build.txt` 中的 `mod_id` 一致
-    - 检查主类中的 `MOD_ID` 常量是否正确
-
-7. **mods.toml 配置问题**
-    - 检查 `build.txt` 中的变量是否正确填写
-    - 确保依赖项的版本变量在 `build.txt` 中已定义并取消注释
-    - 验证 `displayURL` 和 `updateJSONURL` 配置是否有效
-    - 如果启用了依赖但构建失败，检查对应的 gradle 依赖是否也已启用
-
-8. **发布失败**
-    - 检查环境变量配置
-    - 验证项目 ID 设置
-
-### 获取帮助
-
-> [!NOTE]
-> 由于1.20.1的nf gradle本质上依旧是forge，你一般需要向Forge开发者寻求帮助。
-
--   查看 [Forge 官方文档](https://docs.minecraftforge.net/en/latest/)
--   查看 [NeoForge 官方文档](https://docs.neoforged.net/)
--   访问 [NeoForge Discord](https://discord.neoforged.net/)
--   提交 [Issue](https://github.com/your-repo/issues)
+- `org.pickaid.modid`
+- `assets/modid`
+- `mixins.modid.json`
 
 ## 许可证
 
-本模板基于 MIT 许可证发布，你可以自由使用、修改和分发。
-
-## 致谢
-
-感谢以下项目和开发者的贡献：
-
--   NeoForge 团队
--   Minecraft Forge 社区
--   各种依赖库的开发者们
-
----
-
-开始你的 Mod 开发之旅吧！
+本模板使用 MIT License。
