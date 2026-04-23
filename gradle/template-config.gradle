@@ -4,15 +4,20 @@ def failConfig = { String message ->
     throw new GradleException("[template-config] ${message}")
 }
 
-def templateFile = file("${rootDir}/template.toml")
+def projectFile = file("${rootDir}/project.toml")
+def projectLocalFile = file("${rootDir}/project.local.toml")
+def legacyTemplateFile = file("${rootDir}/template.toml")
 def legacyBuildTxt = file("${rootDir}/build.txt")
 def defaultsFile = file("${rootDir}/gradle/template-defaults.toml")
 
-if (!templateFile.isFile()) {
-    failConfig("template.toml is required")
+if (legacyTemplateFile.exists()) {
+    failConfig("template.toml is no longer supported; migrate to project.toml")
+}
+if (!projectFile.isFile()) {
+    failConfig("project.toml is required")
 }
 if (legacyBuildTxt.exists()) {
-    failConfig("build.txt is no longer supported; migrate to template.toml")
+    failConfig("build.txt is no longer supported; migrate to project.toml")
 }
 if (!defaultsFile.isFile()) {
     failConfig("gradle/template-defaults.toml is required")
@@ -72,6 +77,11 @@ def optionalLongFromTable = { def table, String key, long defaultValue = 0L ->
     value != null ? value : defaultValue
 }
 
+def optionalBooleanFromTable = { def table, String key, boolean defaultValue = false ->
+    def value = table == null ? null : table.getBoolean(key)
+    value != null ? value : defaultValue
+}
+
 def expectStringArray = { def table, String key, String path ->
     def array = table.getArray(key)
     if (array == null) {
@@ -93,11 +103,13 @@ def expectStringArray = { def table, String key, String path ->
     values
 }
 
-def templateParsed = parseToml(templateFile)
+def templateParsed = parseToml(projectFile)
 def defaultsParsed = parseToml(defaultsFile)
+def localParsed = projectLocalFile.isFile() ? parseToml(projectLocalFile) : null
 
 ext.templateRaw = templateParsed
 ext.templateDefaultsRaw = defaultsParsed
+ext.templateLocalRaw = localParsed
 
 def schemaVersion = expectLong(templateParsed, "schema_version")
 if (schemaVersion != 1L) {
@@ -108,26 +120,78 @@ def templateVersion = expectStringFromParsed(templateParsed, "template_version")
 def defaultsRevision = expectStringFromParsed(defaultsParsed, "defaults_revision")
 def modTable = expectTable(templateParsed, "mod")
 def featuresTable = expectTable(templateParsed, "features")
+def devPacksTable = templateParsed.getTable("dev_packs")
+def repositoriesTable = templateParsed.getTable("repositories")
+def dependenciesTable = templateParsed.getTable("dependencies")
 def publishTable = expectTable(templateParsed, "publish")
 def namingTable = expectTable(templateParsed, "naming")
 def overridesTable = templateParsed.getTable("overrides")
 def platformTable = expectTable(defaultsParsed, "platform")
 def versionsTable = expectTable(defaultsParsed, "versions")
+def defaultsDevPacksTable = defaultsParsed.getTable("dev_packs")
+def builtinRepositoriesTable = defaultsParsed.getTable("builtin_repositories")
+def builtinDependenciesTable = defaultsParsed.getTable("builtin_dependencies")
+def featureSupportTable = defaultsParsed.getTable("feature_support")
+def localRunTable = localParsed?.getTable("run")
+def localBuildTable = localParsed?.getTable("build")
+def localCompatTable = localParsed?.getTable("compat")
+def localPublishTable = localParsed?.getTable("publish")
 
-def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "overrides", "publish", "naming"] as Set
-def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "kubejs", "mixin_extras"] as Set
+// project.toml is intentionally small at the top level so authors can see the
+// supported surface at a glance and configuration errors stay fail-fast.
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "overrides", "publish", "naming"] as Set
+def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
     "curios_version"          : "curios",
     "geckolib_version"        : "geckolib",
     "player_animator_version" : "player_animator",
     "bendylib_version"        : "player_animator",
-    "kubejs_version"          : "kubejs",
-    "rhino_version"           : "kubejs",
-    "architectury_version"    : "kubejs",
     "mixin_extras_version"    : "mixin_extras"
 ] as Map<String, String>
 def allowedJarTokens = ["archive_name", "mod_id", "version", "mc_version", "loader"] as Set
+def allowedDependencyBuckets = [
+    api                    : [configuration: "api", deobf: false, supportsRange: false],
+    implementation         : [configuration: "implementation", deobf: false, supportsRange: false],
+    additional_runtime_classpath: [configuration: "additionalRuntimeClasspath", deobf: false, supportsRange: false],
+    compile_only_api       : [configuration: "compileOnlyApi", deobf: false, supportsRange: false],
+    compile_only           : [configuration: "compileOnly", deobf: false, supportsRange: false],
+    runtime_only           : [configuration: "runtimeOnly", deobf: false, supportsRange: false],
+    annotation_processor   : [configuration: "annotationProcessor", deobf: false, supportsRange: false],
+    test_implementation    : [configuration: "testImplementation", deobf: false, supportsRange: false],
+    test_runtime_only      : [configuration: "testRuntimeOnly", deobf: false, supportsRange: false],
+    deobf_api              : [configuration: "api", deobf: true, supportsRange: false],
+    deobf_implementation   : [configuration: "implementation", deobf: true, supportsRange: false],
+    deobf_compile_only_api : [configuration: "compileOnlyApi", deobf: true, supportsRange: false],
+    deobf_compile_only     : [configuration: "compileOnly", deobf: true, supportsRange: false],
+    deobf_runtime_only     : [configuration: "runtimeOnly", deobf: true, supportsRange: false],
+    deobf_test_implementation: [configuration: "testImplementation", deobf: true, supportsRange: false],
+    deobf_test_runtime_only: [configuration: "testRuntimeOnly", deobf: true, supportsRange: false],
+    jarjar                 : [configuration: "jarJar", deobf: false, supportsRange: true]
+] as Map<String, Map<String, Object>>
+
+def localFirstString = { String key, String defaultValue = "" ->
+    def localValue = localPublishTable?.getString(key)
+    if (localValue != null) {
+        return localValue
+    }
+    optionalStringFromTable(publishTable, key, defaultValue)
+}
+
+def optionalStringArrayFromTable = { def table, String key ->
+    def array = table == null ? null : table.getArray(key)
+    if (array == null) {
+        return []
+    }
+
+    (0..<array.size()).collect { int index ->
+        def value = array.getString(index)
+        if (value == null || value.isBlank()) {
+            failConfig("Expected non-empty string array entries in ${key}")
+        }
+        value
+    }
+}
 
 templateParsed.dottedKeySet().collect { it.split("\\.")[0] }.unique().each { key ->
     if (!allowedTopLevel.contains(key)) {
@@ -153,13 +217,239 @@ if (overridesTable != null) {
     }
 }
 
+def qualifyPath = { String prefix, String key ->
+    prefix == null || prefix.isBlank() ? key : "${prefix}.${key}"
+}
+
+def parseRepositoryTable = { def table, String prefix = "" ->
+    def repositories = [:]
+    if (table == null) {
+        return repositories
+    }
+
+    table.keySet().each { key ->
+        def label = prefix == null || prefix.isBlank() ? key : qualifyPath(prefix, key)
+        def repoName = key
+        def repoUrl
+        def groups = []
+        def groupRegexes = []
+
+        if (table.isString(key)) {
+            repoUrl = table.getString(key)
+        } else {
+            def repositoryTable = null
+            try {
+                repositoryTable = table.getTable(key)
+            } catch (RuntimeException ignored) {
+                repositoryTable = null
+            }
+            if (repositoryTable == null) {
+                failConfig("Repository ${label} must be a string URL or inline table")
+            }
+
+            def allowedRepoKeys = ["url", "name", "groups", "group_regexes"] as Set
+            repositoryTable.keySet().each { repoKey ->
+                if (!allowedRepoKeys.contains(repoKey)) {
+                    failConfig("Repository ${label} has unsupported key ${repoKey}")
+                }
+            }
+
+            repoUrl = repositoryTable.getString("url")
+            repoName = optionalStringFromTable(repositoryTable, "name", key)
+            groups = optionalStringArrayFromTable(repositoryTable, "${label}.groups")
+            groupRegexes = optionalStringArrayFromTable(repositoryTable, "${label}.group_regexes")
+        }
+
+        if (repoUrl == null || repoUrl.isBlank()) {
+            failConfig("Repository ${label} must be a non-empty string URL")
+        }
+        repositories[key] = [
+            id          : key,
+            name        : repoName,
+            url         : repoUrl,
+            groups      : groups,
+            groupRegexes: groupRegexes
+        ]
+    }
+
+    repositories
+}
+
+def builtinRepositories = parseRepositoryTable(builtinRepositoriesTable, "builtin_repositories")
+def customRepositories = parseRepositoryTable(repositoriesTable)
+
+def parseNotation = { String notation, String path ->
+    def parts = notation.split(":", 3)
+    if (parts.length != 3 || parts.any { it.isBlank() }) {
+        failConfig("Dependency ${path} must use group:artifact:version notation")
+    }
+    [
+        group   : parts[0],
+        artifact: parts[1],
+        version : parts[2]
+    ]
+}
+
+def parseDependencyTables = { def rootTable, String prefix = "" ->
+    def dependencySpecs = []
+    if (rootTable == null) {
+        return dependencySpecs
+    }
+
+    rootTable.keySet().each { bucketKey ->
+        def bucketSpec = allowedDependencyBuckets[bucketKey]
+        if (bucketSpec == null) {
+            if (prefix == null || prefix.isBlank()) {
+                failConfig("Unknown dependency bucket: ${bucketKey}")
+            }
+            failConfig("Unknown dependency bucket in ${prefix}: ${bucketKey}")
+        }
+
+        def bucketTable = rootTable.getTable(bucketKey)
+        if (bucketTable == null) {
+            failConfig("Dependency bucket ${qualifyPath(prefix, bucketKey)} must be a TOML table")
+        }
+
+        bucketTable.keySet().each { dependencyKey ->
+            def entryPath = prefix == null || prefix.isBlank()
+                ? "${bucketKey}.${dependencyKey}"
+                : "${prefix}.${bucketKey}.${dependencyKey}"
+            def supportsRange = bucketSpec.supportsRange as boolean
+            def notation
+            def transitive = true
+            def range = ""
+            def inlineTable = null
+
+            if (bucketTable.isString(dependencyKey)) {
+                notation = bucketTable.getString(dependencyKey)
+            } else if (bucketTable.isTable(dependencyKey)) {
+                inlineTable = bucketTable.getTable(dependencyKey)
+
+                if (inlineTable.contains("notation") && !inlineTable.isString("notation")) {
+                    failConfig("Dependency ${entryPath}.notation must be a string")
+                }
+                if (inlineTable.contains("range") && !inlineTable.isString("range")) {
+                    failConfig("Dependency ${entryPath}.range must be a string")
+                }
+                if (inlineTable.contains("transitive") && !inlineTable.isBoolean("transitive")) {
+                    failConfig("Dependency ${entryPath}.transitive must be a boolean")
+                }
+
+                notation = inlineTable.getString("notation")
+                transitive = optionalBooleanFromTable(inlineTable, "transitive", true)
+                range = optionalStringFromTable(inlineTable, "range")
+            } else {
+                failConfig("Dependency ${entryPath} must be a string or inline table")
+            }
+
+            if (notation == null || notation.isBlank()) {
+                failConfig("Dependency ${entryPath} must define notation")
+            }
+
+            if (inlineTable != null) {
+                def allowedEntryKeys = (supportsRange ? ["notation", "range", "transitive"] : ["notation", "transitive"]) as Set
+                inlineTable.keySet().each { key ->
+                    if (!allowedEntryKeys.contains(key)) {
+                        failConfig("Dependency ${entryPath} has unsupported key ${key}")
+                    }
+                }
+            } else if (supportsRange) {
+                failConfig("Dependency ${entryPath} must be an inline table with notation and range")
+            }
+
+            if (supportsRange && range.isBlank()) {
+                failConfig("Dependency ${entryPath} must define range")
+            }
+            if (!supportsRange && !range.isBlank()) {
+                failConfig("Dependency ${entryPath} does not support range")
+            }
+
+            def notationParts = parseNotation(notation, entryPath)
+            dependencySpecs << [
+                name        : dependencyKey,
+                bucket      : bucketKey,
+                configuration: bucketSpec.configuration,
+                deobf       : bucketSpec.deobf,
+                notation    : notation,
+                transitive  : transitive,
+                range       : range,
+                group       : notationParts.group,
+                artifact    : notationParts.artifact,
+                version     : notationParts.version
+            ]
+        }
+    }
+
+    dependencySpecs
+}
+
+// Generic dependency tables let projects opt into extra libraries without the
+// template growing one more hard-coded feature switch for every ecosystem mod.
+def templateDependencySpecs = parseDependencyTables(dependenciesTable)
+def builtinDependencySpecs = parseDependencyTables(builtinDependenciesTable, "builtin_dependencies")
+
+def enabledDevPacks = []
+if (devPacksTable != null) {
+    devPacksTable.keySet().each { packKey ->
+        if (!devPacksTable.isBoolean(packKey)) {
+            failConfig("dev_packs.${packKey} must be a boolean")
+        }
+        if (defaultsDevPacksTable == null || defaultsDevPacksTable.getTable(packKey) == null) {
+            failConfig("Unknown dev pack: ${packKey}")
+        }
+        if (devPacksTable.getBoolean(packKey)) {
+            enabledDevPacks << packKey
+        }
+    }
+}
+
+def devPackRepositories = [:]
+def devPackDependencySpecs = []
+enabledDevPacks.each { packKey ->
+    def packRootPath = "dev_packs.${packKey}"
+    def packTable = defaultsDevPacksTable.getTable(packKey)
+    if (packTable == null) {
+        failConfig("Missing default configuration for ${packRootPath}")
+    }
+
+    packTable.keySet().each { key ->
+        if (!(key in ["description", "repositories", "dependencies"])) {
+            failConfig("Unsupported key in ${packRootPath}: ${key}")
+        }
+    }
+
+    parseRepositoryTable(packTable.getTable("repositories"), "${packRootPath}.repositories").each { repoName, repoSpec ->
+        def existingSpec = devPackRepositories[repoName]
+        if (existingSpec != null && existingSpec != repoSpec) {
+            failConfig("Dev pack repository ${repoName} points to multiple URLs")
+        }
+        devPackRepositories[repoName] = repoSpec
+    }
+
+    devPackDependencySpecs.addAll(
+        parseDependencyTables(packTable.getTable("dependencies"), "${packRootPath}.dependencies").collect { spec ->
+            spec + [pack: packKey]
+        }
+    )
+}
+
 ext.templateTables = [
     mod      : modTable,
     features : featuresTable,
+    devPacks : devPacksTable,
+    repositories: repositoriesTable,
+    dependencies: dependenciesTable,
     publish  : publishTable,
     naming   : namingTable,
     overrides: overridesTable
 ]
+
+ext.templateRepositories = [
+    builtin : builtinRepositories.values().toList(),
+    custom  : customRepositories.values().toList(),
+    devPacks: devPackRepositories.values().toList()
+]
+ext.enabledDevPacks = enabledDevPacks
 
 def modId = expectStringFromTable(modTable, "mod_id", "mod")
 def modName = expectStringFromTable(modTable, "mod_name", "mod")
@@ -242,7 +532,11 @@ ext.template = [
     archiveName    : archiveName,
     renderedArchiveStem: renderedArchiveStem,
     releaseType    : releaseType,
-    mavenUrl       : optionalStringFromTable(publishTable, "maven_url"),
+    mavenUrl       : localFirstString("maven_url"),
+    mavenUser      : localFirstString("maven_user"),
+    mavenPassword  : localFirstString("maven_password"),
+    modrinthToken  : localFirstString("modrinth_token"),
+    curseforgeToken: localFirstString("curseforge_token"),
     curseforgeProject: optionalLongFromTable(publishTable, "curseforge_project", 0L),
     modrinthProject: optionalStringFromTable(publishTable, "modrinth_project")
 ]
@@ -257,6 +551,12 @@ ext.templatePlatform = [
     loader            : "forge"
 ]
 
+ext.templateLocal = [
+    mcUser           : optionalStringFromTable(localRunTable, "mc_user"),
+    formalVersion    : optionalBooleanFromTable(localBuildTable, "formal_version", false),
+    referenceProjects: optionalStringFromTable(localCompatTable, "reference_projects")
+]
+
 ext.resolvedFeatureVersions = [
     registrate               : expectStringFromTable(versionsTable, "registrate", "versions"),
     jei                      : resolveVersion("jei_version", "jei"),
@@ -264,9 +564,6 @@ ext.resolvedFeatureVersions = [
     geckolib                 : resolveVersion("geckolib_version", "geckolib"),
     playerAnimator           : resolveVersion("player_animator_version", "player_animator"),
     bendylib                 : resolveVersion("bendylib_version", "bendylib"),
-    kubejs                   : resolveVersion("kubejs_version", "kubejs"),
-    rhino                    : resolveVersion("rhino_version", "rhino"),
-    architectury             : resolveVersion("architectury_version", "architectury"),
     mixinExtras              : resolveVersion("mixin_extras_version", "mixin_extras"),
     jeiVersionRange          : resolveVersion("jei_version", "jei"),
     curiosVersionRange       : resolveVersion("curios_version", "curios"),
@@ -274,23 +571,106 @@ ext.resolvedFeatureVersions = [
     playerAnimatorVersionRange: resolveVersion("player_animator_version", "player_animator")
 ]
 
+def featureSupportSpecs = []
+if (featureSupportTable != null) {
+    featureSupportTable.keySet().each { featureKey ->
+        if (!allowedFeatures.contains(featureKey)) {
+            failConfig("Unknown feature_support key: ${featureKey}")
+        }
+
+        def featureTable = featureSupportTable.getTable(featureKey)
+        if (featureTable == null) {
+            failConfig("feature_support.${featureKey} must be a table")
+        }
+
+        featureTable.keySet().each { key ->
+            if (key != "dependencies") {
+                failConfig("Unsupported key in feature_support.${featureKey}: ${key}")
+            }
+        }
+
+        if (project.ext.enabledFeatures[featureKey]) {
+            featureSupportSpecs.addAll(
+                parseDependencyTables(featureTable.getTable("dependencies"), "feature_support.${featureKey}.dependencies").collect { spec ->
+                    spec + [feature: featureKey]
+                }
+            )
+        }
+    }
+}
+
+def dependencyTokens = [
+    mc_version     : mcVersion,
+    forge_version  : forgeVersion,
+    registrate     : project.ext.resolvedFeatureVersions.registrate,
+    jei            : project.ext.resolvedFeatureVersions.jei,
+    curios         : project.ext.resolvedFeatureVersions.curios,
+    geckolib       : project.ext.resolvedFeatureVersions.geckolib,
+    player_animator: project.ext.resolvedFeatureVersions.playerAnimator,
+    bendylib       : project.ext.resolvedFeatureVersions.bendylib,
+    mixin_extras   : project.ext.resolvedFeatureVersions.mixinExtras
+]
+
+def renderTemplateTokens = { String input, String path ->
+    if (input == null || input.isBlank()) {
+        return input
+    }
+
+    def matcher = (input =~ /\{([^}]+)\}/)
+    matcher.each { match ->
+        def token = match[1]
+        if (!dependencyTokens.containsKey(token)) {
+            failConfig("Unsupported token ${token} in ${path}")
+        }
+    }
+
+    def rendered = input
+    dependencyTokens.each { token, value ->
+        rendered = rendered.replace("{${token}}", value)
+    }
+    rendered
+}
+
+def renderDependencySpecs = { List<Map<String, Object>> specs, String prefix ->
+    specs.collect { spec ->
+        def specLabel = prefix == null || prefix.isBlank() ? spec.name : "${prefix}.${spec.name}"
+        def renderedNotation = renderTemplateTokens(spec.notation as String, "${specLabel}.notation")
+        def renderedRange = renderTemplateTokens(spec.range as String, "${specLabel}.range")
+        def notationParts = parseNotation(renderedNotation, specLabel)
+        spec + [
+            notation: renderedNotation,
+            range   : renderedRange,
+            group   : notationParts.group,
+            artifact: notationParts.artifact,
+            version : notationParts.version
+        ]
+    }
+}
+
+ext.templateBuiltinDependencies = renderDependencySpecs(builtinDependencySpecs, "builtin_dependencies")
+ext.templateFeatureDependencies = renderDependencySpecs(featureSupportSpecs, "feature_support")
+ext.templateDependencies = renderDependencySpecs(templateDependencySpecs, "dependencies")
+ext.templateDevPackDependencies = renderDependencySpecs(devPackDependencySpecs, "dev_packs")
+
 def compatConfig = new ConfigObject()
 compatConfig.putAll([
     enable_annotation   : "true",
     mod_version         : finalVersion,
-    formal_version      : "false",
+    formal_version      : project.ext.templateLocal.formalVersion.toString(),
     registrate_version  : resolvedFeatureVersions.registrate,
     jei_version         : resolvedFeatureVersions.jei,
     curios_version      : resolvedFeatureVersions.curios,
     geckolib_version    : resolvedFeatureVersions.geckolib,
     playeranimator_version: resolvedFeatureVersions.playerAnimator,
+    citadel_version      : "",
     bendylib_version    : resolvedFeatureVersions.bendylib,
-    kubejs_version      : resolvedFeatureVersions.kubejs,
-    rhino_version       : resolvedFeatureVersions.rhino,
-    architectury_version: resolvedFeatureVersions.architectury,
     mixin_extras_version: resolvedFeatureVersions.mixinExtras,
+    l2_library_version  : "",
+    l2damagetracker_version: "",
+    l2serial_version    : "",
+    pibrary_version     : "",
     rpg_projects        : "",
-    reference_projects  : "",
+    reference_projects  : project.ext.templateLocal.referenceProjects,
     mod_id              : modId,
     archive_name        : archiveName,
     mod_name            : modName,
@@ -302,16 +682,18 @@ compatConfig.putAll([
     maven_group         : template.group,
     rendered_archive_stem: renderedArchiveStem,
     maven_url           : template.mavenUrl,
-    maven_user          : "",
-    maven_passwd        : "",
+    maven_user          : template.mavenUser,
+    maven_passwd        : template.mavenPassword,
     mc_version          : mcVersion,
     mc_range            : mcRange,
     forge_version       : forgeVersion,
     forge_range         : forgeRange,
-    mc_user             : "",
+    mc_user             : project.ext.templateLocal.mcUser,
     java                : javaVersion,
     cf_project          : template.curseforgeProject.toString(),
     modrinth_project    : template.modrinthProject,
+    modrinth_token      : template.modrinthToken,
+    curseforge_token    : template.curseforgeToken,
     release_type        : template.releaseType,
     required_mods       : "",
     optional_mods       : "",
@@ -319,8 +701,5 @@ compatConfig.putAll([
     embedded_mods       : ""
 ])
 
-project.ext.configFile = templateFile
+project.ext.configFile = projectFile
 project.ext.config = compatConfig
-project.ext.hasConfig = { String key ->
-    config.isSet(key)
-}

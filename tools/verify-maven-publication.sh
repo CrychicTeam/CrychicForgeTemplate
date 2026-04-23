@@ -20,7 +20,7 @@ ARTIFACT_DIR="${LOCAL_M2}/${GROUP_PATH}"
 
 cd "${ROOT}"
 rm -rf "${ARTIFACT_DIR}"
-bash ./gradlew publishToMavenLocal --no-daemon "-Dmaven.repo.local=${LOCAL_M2}"
+bash ./gradlew publishToMavenLocal --no-daemon "-Duser.home=${HOME}"
 
 test -f "${ARTIFACT_DIR}/example-0.0.1.jar"
 test -f "${ARTIFACT_DIR}/example-0.0.1-sources.jar"

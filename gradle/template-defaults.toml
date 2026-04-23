@@ -1,4 +1,6 @@
-defaults_revision = "1.20.1-r1"
+# Keep this file intentionally curated. Project-specific extras should go in
+# project.toml via [repositories] and [dependencies.*].
+defaults_revision = "1.20.1-r5"
 
 [platform]
 mc_version = "1.20.1"
@@ -14,7 +16,143 @@ curios = "5.9.1+1.20.1"
 geckolib = "4.4.9"
 player_animator = "1.0.2+1.20"
 bendylib = "1.0.2"
-kubejs = "2001.6.4-build.120"
-rhino = "2001.2.2-build.18"
-architectury = "9.1.12"
 mixin_extras = "0.2.0-beta.8"
+
+# Built-in dependency repositories used by the curated template surface.
+# Projects should only add to [repositories] when they need something outside
+# this set.
+[builtin_repositories.blamejared]
+name = "Jared's Maven"
+url = "https://maven.blamejared.com/"
+group_regexes = ["mezz\\.jei.*"]
+
+[builtin_repositories.tterrag]
+name = "tterrag"
+url = "https://maven.tterrag.com/"
+
+[builtin_repositories.sponge]
+name = "sponge"
+url = "https://repo.spongepowered.org/maven"
+groups = ["com.github.llamalad7.mixinextras"]
+
+[builtin_repositories.geckolib]
+name = "GeckoLib"
+url = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+groups = ["com.eliotlash.mclib"]
+group_regexes = ["software\\.bernie.*"]
+
+[builtin_repositories.curios]
+name = "Curios"
+url = "https://maven.theillusivec4.top/"
+groups = ["top.theillusivec4.curios"]
+
+[builtin_repositories.kosmx]
+name = "KosmX's Maven"
+url = "https://maven.kosmx.dev/"
+
+[builtin_repositories.cursemaven]
+name = "CurseMaven"
+url = "https://cursemaven.com"
+groups = ["curse.maven"]
+
+[builtin_repositories.architectury]
+name = "Architectury"
+url = "https://maven.architectury.dev"
+groups = ["dev.architectury"]
+
+[builtin_repositories.latvian]
+name = "Lat's Maven"
+url = "https://maven.latvian.dev/releases"
+groups = ["dev.latvian.mods", "dev.latvian.apps"]
+
+[builtin_repositories.jitpack]
+name = "JitPack"
+url = "https://jitpack.io"
+groups = ["com.github.rtyley", "com.github.llamalad7.mixinextras"]
+
+# Core template dependencies that every generated project starts with.
+[builtin_dependencies.deobf_api]
+registrate = "com.tterrag.registrate:Registrate:{registrate}"
+
+# Feature-curated dependencies. These stay in defaults so build.gradle does not
+# need one hard-coded branch per ecosystem mod.
+[feature_support.jei.dependencies.deobf_compile_only]
+jei_common_api = "mezz.jei:jei-{mc_version}-common-api:{jei}"
+jei_forge_api = "mezz.jei:jei-{mc_version}-forge-api:{jei}"
+
+[feature_support.jei.dependencies.deobf_runtime_only]
+jei_runtime = "mezz.jei:jei-{mc_version}-forge:{jei}"
+
+[feature_support.curios.dependencies.deobf_compile_only]
+curios = "top.theillusivec4.curios:curios-forge:{curios}"
+
+[feature_support.geckolib.dependencies.deobf_implementation]
+geckolib = "software.bernie.geckolib:geckolib-neoforge-{mc_version}:{geckolib}"
+
+[feature_support.geckolib.dependencies.implementation]
+mclib = "com.eliotlash.mclib:mclib:20"
+
+[feature_support.geckolib.dependencies.additional_runtime_classpath]
+mclib_runtime = "com.eliotlash.mclib:mclib:20"
+
+[feature_support.player_animator.dependencies.deobf_implementation]
+player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:{player_animator}"
+
+[feature_support.player_animator.dependencies.deobf_runtime_only]
+bendylib = "io.github.kosmx.bendy-lib:bendy-lib-forge:{bendylib}"
+
+[feature_support.mixin_extras.dependencies.compile_only]
+mixinextras_common = "com.github.llamalad7.mixinextras:mixinextras-common:{mixin_extras}"
+
+[feature_support.mixin_extras.dependencies.annotation_processor]
+mixinextras_common_processor = "com.github.llamalad7.mixinextras:mixinextras-common:{mixin_extras}"
+
+[feature_support.mixin_extras.dependencies.deobf_implementation]
+mixinextras_forge = "com.github.llamalad7.mixinextras:mixinextras-forge:{mixin_extras}"
+
+# Built-in local helper packs.
+# These are intentionally focused on common dev/runtime inspection cases.
+[dev_packs.basic]
+description = "Basic local HUD and inspection helpers."
+
+[dev_packs.basic.dependencies.deobf_runtime_only]
+jei = "mezz.jei:jei-1.20.1-forge:15.2.0.27"
+jade = "curse.maven:jade-324717:4654448"
+
+[dev_packs.appleskin]
+description = "AppleSkin as a standalone local HUD helper."
+
+[dev_packs.appleskin.dependencies.deobf_runtime_only]
+appleskin = "curse.maven:appleskin-248787:4605078"
+
+[dev_packs.combat]
+description = "Combat-debug helpers: target dummy and common attribute fixes."
+
+[dev_packs.combat.dependencies.deobf_runtime_only]
+target_dummy = "curse.maven:mmmmmmmmmmmm-225738:4602101"
+attribute_fix = "curse.maven:attributefix-280510:7612291"
+max_health_fix = "curse.maven:max-health-fix-492246:7612769"
+
+[dev_packs.curios]
+description = "Curios local runtime for slot and accessory integration testing."
+
+[dev_packs.curios.dependencies.deobf_runtime_only]
+curios = "top.theillusivec4.curios:curios-forge:5.9.1+1.20.1"
+
+[dev_packs.spell]
+description = "Spell-system smoke test helpers."
+
+[dev_packs.spell.repositories]
+redspace = "https://code.redspace.io/releases"
+
+[dev_packs.spell.dependencies.deobf_runtime_only]
+caelus = "curse.maven:caelus-308989:5281700"
+irons_spellbooks = "io.redspace.ironsspellbooks:irons_spellbooks:1.20.1-3.4.0.4"
+
+[dev_packs.kubejs]
+description = "KubeJS local runtime for script-driven smoke tests."
+
+[dev_packs.kubejs.dependencies.deobf_runtime_only]
+architectury = "dev.architectury:architectury-forge:9.1.12"
+rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"

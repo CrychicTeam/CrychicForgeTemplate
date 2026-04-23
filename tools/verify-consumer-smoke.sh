@@ -86,5 +86,5 @@ class TemplateConsumerSmokeTest {
 EOF
 
 cd "${ROOT}"
-bash ./gradlew publishToMavenLocal --no-daemon "-Dmaven.repo.local=${LOCAL_M2}"
-bash ./gradlew -p "${TMP_DIR}" test --no-daemon
+bash ./gradlew publishToMavenLocal --no-daemon "-Duser.home=${HOME}"
+bash ./gradlew -p "${TMP_DIR}" test --no-daemon "-Duser.home=${HOME}"

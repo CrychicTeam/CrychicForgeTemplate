@@ -4,24 +4,49 @@
 
 [English Version](README_EN.md) | 中文版
 
-这是一个面向 Minecraft 1.20.1 Forge 的模板。
+这是一个给 Minecraft `1.20.1` Forge 用的模组模板。
 
-它已经把常见的项目骨架、可选库接入、Maven 发布、`runtime` 分发包、Modrinth 和 CurseForge 上传规则整理好了。你改完 `template.toml` 和包名，就可以直接开始写模组。
+它的核心目标很简单：
 
-`build.txt` 已经退场。现在只认 `template.toml`。
+- 你主要改 `project.toml`
+- 你把模板里的占位包名和资源路径换成自己的
+- 然后直接开始写模组
 
-## 快速开始
+而不是每开一个新项目，都先花一轮时间重新整理 Gradle、发布、运行配置和依赖。
 
-### 1. 获取模板
+如果你是第一次用这个模板，可以先记住一句话：
+
+> 先改 `project.toml` 里的模组信息，再把 `modid` 占位路径改掉，然后跑一次 `./gradlew build`。
+
+## 这个模板已经帮你准备了什么
+
+- 可直接启动的 Forge 1.20.1 项目骨架
+- `project.toml` 驱动的项目配置
+- 常见模组生态的 feature 开关
+- 本地开发用的 dev pack 开关
+- Maven 发布，包含 `sources`、`javadoc`、`runtime` jar
+- Modrinth 和 CurseForge 上传链路
+- 通过 TOML 加仓库和依赖，而不是反复手改 `build.gradle`
+
+老的 `template.toml` 和 `build.txt` 已经彻底废弃。
+
+现在模板固定读取：
+
+- `project.toml`
+- 可选的 `project.local.toml`
+
+## 最短上手路径
+
+### 1. 克隆模板
 
 ```bash
 git clone [仓库地址]
 cd PickAIDForgeTemplate
 ```
 
-### 2. 修改 `template.toml`
+### 2. 先改 `project.toml`
 
-最少先改这几块：
+第一次只需要把最关键的几项改掉：
 
 ```toml
 schema_version = 1
@@ -42,11 +67,18 @@ jei = false
 curios = false
 geckolib = false
 player_animator = false
-kubejs = true
 mixin_extras = true
 
+[dev_packs]
+basic = false
+appleskin = false
+combat = false
+curios = false
+spell = false
+kubejs = false
+
 [publish]
-maven_url = "https://your-maven.example/releases"
+maven_url = ""
 curseforge_project = 0
 modrinth_project = ""
 release_type = "alpha"
@@ -56,89 +88,285 @@ archive_name = "yourmod"
 jar_format = "{archive_name}-{mc_version}-{version}"
 ```
 
-### 3. 改掉模板占位路径
+如果你现在不关心发布，那 `[publish]` 保持默认就行。
 
-把下面这些占位内容换成你自己的：
+`version_suffix` 也可以先留空。
+如果以后你想做热修或测试版，可以写成这样：
+
+```toml
+version = "1.2.0"
+version_suffix = "hotfix.1"
+```
+
+最后版本号会变成 `1.2.0-hotfix.1`。
+
+### 3. 把模板里的占位路径换掉
+
+正式开始写逻辑前，先把这些占位内容改成你自己的：
 
 1. `src/main/java/org/pickaid/modid/`
 2. `src/main/resources/assets/modid/`
 3. `src/main/resources/mixins.modid.json`
 4. `src/main/java/org/pickaid/modid/Example.java`
 
-如果你不用 Mixin，可以保留空的配置；如果要用，就把包路径和文件名一起改掉。
-
-### 4. 导入 IDEA 并生成运行配置
+### 4. 先构建一次
 
 ```bash
 ./gradlew genIntellijRuns
 ./gradlew build
 ```
 
-## `template.toml` 怎么写
+只要这一步能过，说明模板已经基本切到你的项目名下了。
+
+### 5. 可选：写一个 `project.local.toml`
+
+这个文件默认不进 git，适合放只属于你本机的配置，比如：
+
+- `mc_user`
+- 本机临时发布凭证
+- 本机联调用的小开关
+
+可以直接从 [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate/project.local.toml.example) 复制。
+
+## `project.toml` 怎么看
+
+如果你是第一次用这种配置方式，可以把它理解成：
+
+- `[mod]` 是“我这个模组是谁”
+- `[features]` 是“我要不要接常见生态”
+- `[dev_packs]` 是“我本地调试时想不想顺手带上一组辅助模组”
+- `[repositories]` 是“我还需要去哪找额外依赖”
+- `[dependencies.*]` 是“我还要不要额外加别的依赖”
+- `[publish]` 是“我要怎么发版”
+- `[naming]` 是“最终产物叫什么”
+
+下面按实际使用顺序来讲。
 
 ### `[mod]`
 
-这里放模组本身的信息。
+这是最重要的一段。你每次新建项目，最先改的就是这里。
 
-- `mod_id` 是模组 id。
-- `mod_name` 是显示名称。
-- `version` 是基础版本。
-- `version_suffix` 可选，比如 `hotfix.2`。
-- `group` 是 Maven group。
-- `authors` 不能为空。
-- `description` 会写进 `mods.toml`。
+- `mod_id`：Forge mod id，尽量全小写
+- `mod_name`：显示给玩家看的名字
+- `version`：基础版本号
+- `version_suffix`：可选后缀，比如 `beta.2`、`hotfix.1`
+- `group`：Maven group
+- `authors`：作者列表，不能为空
+- `license`：许可证
+- `description`：会写进 `mods.toml`
 
-如果你把 `version = "1.0.0"`、`version_suffix = "hotfix.2"`，最终版本就是 `1.0.0-hotfix.2`。
+如果你不知道先填什么，先把 `mod_id`、`mod_name`、`group`、`version` 填对，其他先用普通值也行。
 
 ### `[features]`
 
-这里决定模板是否接入常见库：
+这是模板已经直接支持的常见生态开关。
+
+当前支持：
 
 - `jei`
 - `curios`
 - `geckolib`
 - `player_animator`
-- `kubejs`
 - `mixin_extras`
 
-布尔值写 `true` 或 `false`。
+你可以把它理解成“我想不想让模板替我把这一类常见集成接上”。
+
+例如：
+
+- 想在代码里直接使用 JEI API，就开 `jei = true`
+- 想接 Curios，就开 `curios = true`
+- 想做 GeckoLib 动画，就开 `geckolib = true`
+
+没用到就关着，保持最小依赖面。
 
 ### `[overrides]`
 
-这里用来覆盖模板默认版本。
+大多数项目一开始不用动这里。
 
-只有在对应 feature 已开启时，相关 override 才允许出现。当前支持：
+它的作用不是“常规配置”，而是：
+
+> 当你已经开了某个 feature，但你明确想换掉模板给的默认版本时，再来这里改。
+
+现在支持：
 
 - `jei_version`
 - `curios_version`
 - `geckolib_version`
 - `player_animator_version`
 - `bendylib_version`
-- `kubejs_version`
-- `rhino_version`
-- `architectury_version`
 - `mixin_extras_version`
 
-`player_animator` 如果开了，通常也要一起关心 `bendylib_version`。
-`kubejs` 这组会一起牵涉 `kubejs_version`、`rhino_version`、`architectury_version`。
+如果你没有明确版本需求，就让它空着，最省事。
+
+### `[dev_packs]`
+
+这是给本地开发准备的辅助模组包。
+
+它们的作用不是定义你正式发布的 API 面，而是让你调试更顺手。
+
+当前内置：
+
+- `basic`：JEI + Jade
+- `appleskin`：AppleSkin
+- `combat`：Target Dummy + AttributeFix + Max Health Fix
+- `curios`：Curios 本地运行环境
+- `spell`：Caelus + Iron's Spellbooks
+- `kubejs`：Architectury + Rhino + KubeJS 本地脚本环境
+
+例如你想本地调试时顺手看配方、看方块/实体信息，可以直接开：
+
+```toml
+[dev_packs]
+basic = true
+combat = false
+```
+
+如果你只是想让本地运行更方便，用 `dev_packs`。
+如果你要在源码里直接 import 某个模组的 API，用 `[features]` 或 `[dependencies.*]`。
+
+### `[repositories]`
+
+这里现在已经预填好了常见生态仓库。
+
+也就是说，大多数项目你根本不用碰它。
+
+现在这几个地址已经在 `project.toml` 里了：
+
+- BlameJared
+- tterrag
+- Sponge
+- GeckoLib
+- Curios
+- KosmX
+- CurseMaven
+- Architectury
+- Latvian / KubeJS
+- JitPack
+
+你只在一种情况下需要继续改这里：
+
+> 你要加的那个库或模组，不在这些常见仓库里。
+
+那就自己补一条：
+
+```toml
+[repositories]
+redspace = "https://code.redspace.io/releases"
+```
+
+或者用更完整的写法：
+
+```toml
+[repositories]
+redspace = { url = "https://code.redspace.io/releases", name = "Redspace", groups = ["io.redspace.ironsspellbooks"] }
+```
+
+### `[dependencies.*]`
+
+这是通用依赖层。
+
+你可以把它理解成：
+
+> feature 不够用时，用这里；你要加自己项目特有的依赖时，也用这里。
+
+支持的 bucket 有这些：
+
+- `api`
+- `implementation`
+- `compile_only_api`
+- `compile_only`
+- `runtime_only`
+- `annotation_processor`
+- `test_implementation`
+- `test_runtime_only`
+- `deobf_api`
+- `deobf_implementation`
+- `deobf_compile_only_api`
+- `deobf_compile_only`
+- `deobf_runtime_only`
+- `deobf_test_implementation`
+- `deobf_test_runtime_only`
+- `jarjar`
+
+如果你现在看这些名字有点乱，只先记住最常用的四个：
+
+- `deobf_api`：你暴露给下游的 mod API 依赖
+- `deobf_implementation`：你自己内部要用的 mod 依赖
+- `deobf_compile_only`：只需要编译时可见的 mod 依赖
+- `deobf_runtime_only`：只需要本地运行时带上的 mod 依赖
+
+再简单一点：
+
+- 想让下游也看见：`api`
+- 只想自己用：`implementation`
+- 只是编译要用：`compile_only`
+- 只是运行要用：`runtime_only`
+
+前面带 `deobf_` 的，就是给 mod 依赖准备的。
+
+这里我已经把一些常见写法作为注释示例放进 `project.toml` 了，比如：
+
+- Registrate
+- JEI API / 运行时
+- Curios
+- GeckoLib
+- Player Animator
+- MixinExtras
+- KubeJS / Rhino
+- Architectury
+
+这些默认都是注释状态，目的是让你以后需要时可以直接抄，不用再回头找坐标。
+
+如果你已经通过 `[features]` 开了某个集成，通常就不要再在 `[dependencies.*]` 里手工重复声明同一份依赖。
 
 ### `[publish]`
 
-这里控制 Maven 和平台上传。
+这里管的是发版。
 
-- `maven_url` 为空时，不做远端 Maven 发布。
-- `curseforge_project = 0` 表示不上传 CurseForge。
-- `modrinth_project = ""` 表示不上传 Modrinth。
-- `release_type` 只接受 `alpha`、`beta`、`release`。
+- `maven_url`：你的 Maven 仓库地址
+- `curseforge_project`：CurseForge 项目 id，`0` 表示关闭
+- `modrinth_project`：Modrinth 项目 id，空字符串表示关闭
+- `release_type`：`alpha`、`beta`、`release`
 
-`buildAndUploadMod` 至少要有一个平台目标。某个平台留空，就等于这个平台不参与上传。
+如果你只是本地开发，不急着发版，保持默认就行。
+
+敏感信息建议放环境变量，或者放进本机用的 `project.local.toml`。
+
+常用环境变量：
+
+- `MAVEN_URL`
+- `MAVEN_USER`
+- `MAVEN_PASSWORD`
+- `MODRINTH_TOKEN`
+- `CURSEFORGE_TOKEN`
+
+`project.local.toml` 里可以这样写：
+
+```toml
+[publish]
+maven_user = "your-user"
+maven_password = "your-password"
+modrinth_token = "your-modrinth-token"
+curseforge_token = "your-curseforge-token"
+
+[run]
+mc_user = "DevPlayer,00000000000000000000000000000001"
+```
+
+之所以不建议把这些写进 `project.toml`，原因很现实：
+
+- 它们是你的机器配置，不是项目公共配置
+- 它们会让仓库反复变脏
+- 它们不适合进入 git 历史
 
 ### `[naming]`
 
-- `archive_name` 控制基础 artifact 名。
-- `jar_format` 控制 jar 文件名格式。
+这里只有两件事：
 
-支持的 token 只有这些：
+- `archive_name`：产物基础名
+- `jar_format`：最终 jar 文件名格式
+
+支持的 token：
 
 - `{archive_name}`
 - `{mod_id}`
@@ -146,30 +374,59 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 - `{mc_version}`
 - `{loader}`
 
-默认格式是：
+默认够用的格式是：
 
 ```toml
 jar_format = "{archive_name}-{mc_version}-{version}"
 ```
 
-## 发布出来的东西是什么
+## 发版相关
 
-这个模板会发布四类文件：
+### 发布到本地 Maven
 
-- 默认 artifact：开发用主 jar
-- `runtime` 分类 artifact：分发用打包 jar
+```bash
+./gradlew publishToMavenLocal
+```
+
+### 发布到自己的 Maven
+
+1. 在 `project.toml` 里填 `publish.maven_url`，或者直接设置 `MAVEN_URL`
+2. 如果仓库需要认证，再设置 `MAVEN_USER` 和 `MAVEN_PASSWORD`
+3. 运行：
+
+```bash
+./gradlew publish
+```
+
+### 上传到 Modrinth / CurseForge
+
+1. 在 `project.toml` 里填对应项目 id
+2. 设置对应 token
+3. 运行：
+
+```bash
+./gradlew buildAndUploadMod
+```
+
+这里上传的是 `runtime` jar，不是开发 jar。
+
+## 这个模板会发布哪些产物
+
+Maven 发布默认会带上：
+
+- 开发 jar
+- `runtime` jar
 - `sources` jar
 - `javadoc` jar
 
-需要记住的是：
+实际理解可以直接记这一句：
 
-- 默认 Maven 坐标是开发 jar，不是分发 jar。
-- `runtime` jar 才是上传到 Modrinth 和 CurseForge 的那一个。
-- Modrinth 和 CurseForge 上传时都会强制走 `runtime` jar。
+- 下游编译时，通常吃默认 artifact
+- 平台上传时，发的是 `runtime` artifact
 
-## 从别的模组里怎么引用
+## 下游模组怎么依赖你
 
-如果你把这个模板产出的模组发布到 Maven，下游通常这样写：
+如果你把这个模板产出的模组发到了 Maven，下游一般这样写：
 
 ```gradle
 repositories {
@@ -181,34 +438,40 @@ dependencies {
 }
 ```
 
-这里不要再包一层 `fg.deobf(...)`。默认发布物本来就是开发用 jar。
+这里通常不需要再包一层 `fg.deobf(...)`。
 
-如果你只是想在运行时拿到打包版，可以再用 `runtime` 分类：
+如果你明确要用打包后的运行时产物，再单独写：
 
 ```gradle
 runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
 ```
 
-如果你的项目直接引用了这个模组暴露出来的某些可选库 API，比如 JEI 或 Curios，自家项目里还是应该明确声明这些 API 依赖。模板发布的 POM 会带基础依赖信息，但不会替你决定源码层该依赖什么。
+## Gradle 下载镜像
 
-## 环境变量
+默认仓库保留官方 Wrapper 地址：
 
-构建和发布会优先读取这些环境变量：
+- `https://services.gradle.org`
 
-- `MAVEN_URL`
-- `MAVEN_USER`
-- `MAVEN_PASSWORD`
-- `MODRINTH_TOKEN`
-- `CURSEFORGE_TOKEN`
+如果你在中国大陆，下载慢是正常情况。
 
-例如：
+模板里带了一个切换脚本：
 
 ```bash
-export MAVEN_USER="your-user"
-export MAVEN_PASSWORD="your-password"
-export MODRINTH_TOKEN="your-token"
-export CURSEFORGE_TOKEN="your-token"
+bash tools/set-gradle-wrapper-mirror.sh official
+bash tools/set-gradle-wrapper-mirror.sh aliyun
+bash tools/set-gradle-wrapper-mirror.sh huawei
 ```
+
+可选预设：
+
+- `official`
+- `aliyun`
+- `huawei`
+
+比较稳妥的做法是：
+
+- 本地慢，就先切镜像
+- 准备提交时，再切回 `official`
 
 ## 常用命令
 
@@ -219,47 +482,64 @@ export CURSEFORGE_TOKEN="your-token"
 ./gradlew runData
 ./gradlew genIntellijRuns
 ./gradlew publishToMavenLocal
+./gradlew publish
 ./gradlew buildAndUploadMod
 ```
 
 ## 常见问题
 
-### 发现还在读 `build.txt`
+### 我只是想开始写模组，最少到底要改什么
 
-不会。
+先改这三类就够了：
 
-如果根目录里还有旧的 `build.txt`，构建会直接停下，提醒你迁移到 `template.toml`。
+1. `project.toml` 里的 `[mod]`
+2. `org/pickaid/modid` 相关 Java 包路径
+3. `assets/modid` 和 `mixins.modid.json`
 
-### 本地 Maven 里要拿哪个坐标
+然后跑一次：
 
-开发依赖拿默认坐标：
-
-```gradle
-implementation "group:modid:version"
+```bash
+./gradlew build
 ```
 
-分发包或运行时打包依赖拿：
+### 我什么时候该用 `features`，什么时候该用 `dependencies`
 
-```gradle
-runtimeOnly "group:modid:version:runtime"
+简单记：
+
+- 模板已经支持的常见生态，用 `features`
+- 只是本地调试图省事，用 `dev_packs`
+- 自己额外要加的东西，用 `[dependencies.*]`
+
+### 现在怎么加 KubeJS
+
+KubeJS 现在更适合走通用依赖层，或者直接开本地 dev pack。
+
+如果你只是想本地跑一下脚本环境：
+
+```toml
+[dev_packs]
+kubejs = true
 ```
 
-### 上传失败
+如果你要显式声明依赖，可以用：
 
-先看这几件事：
+```toml
+[dependencies.deobf_compile_only]
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
+rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
 
-1. `modrinth_project` 或 `curseforge_project` 是否至少配了一个。
-2. 对应 token 环境变量是否真的存在。
-3. `release_type` 是否是 `alpha`、`beta`、`release` 之一。
+[dependencies.deobf_implementation]
+architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transitive = false }
+```
 
-### 资源或 Mixin 没生效
+### 为什么 `build.txt` 或 `template.toml` 会直接报错
 
-通常就是模板占位路径没改干净。重点检查：
+这是故意的。
 
-- `org.pickaid.modid`
-- `assets/modid`
-- `mixins.modid.json`
+模板不允许新旧配置混用。发现旧文件就直接失败，目的是让配置面保持单一，不让项目以后变成“有一半在新配置里，有一半在旧配置里”。
 
-## 许可证
+### 什么时候需要写 `fg.deobf(...)`
 
-本模板使用 MIT License。
+通过 `project.toml` 加 mod 依赖时，`deobf_*` 这些 bucket 已经帮你处理了。
+
+反过来，消费这个模板发布出来的模组时，通常直接写普通 Maven 坐标就够了。
