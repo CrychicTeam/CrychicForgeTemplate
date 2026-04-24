@@ -1,38 +1,112 @@
-<div align="center"><img height="200" src="https://docs.mihono.cn/logo.png" width="200"/></div>
+<div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# Minecraft Forge Mod Template 
-This is a simple repository that serves as a template for creating a Minecraft 1.20+ mod.
+# Minecraft NeoForge 1.21.1 模组模板
 
-# Prerequisites
-- Intellij IDEA
-- Installed Java 17 JDK
-- If you want to publish your mod:
-  - For uploading on Modrinth, assign `MODRINTH_TOKEN` environment variable to your [Modrinth authorization token](https://modrinth.com/settings/account)
-  - For uploading on CurseForge, assign `CURSEFORGE_TOKEN` environment variable to your [CurseForge token](https://legacy.curseforge.com/account/api-tokens)
-    - To open environment variable editor in Windows, Press `Win+R`, paste this command `rundll32 sysdm.cpl,EditEnvironmentVariables` and hit enter. 
-- Any modifications with previous step require a full computer restart in order for the environment variables to be accessible to applications.
+[English Version](README_EN.md) | 中文版
 
-# Setup procedure
-- Copy this repository to your computer either by:
-  - Select the branch that you want to make the mod on, and download the repository as ZIP file;
-  - Clone the repository and checkout the branch of version you are interested in.
-- Open `build.gradle` with IntelliJ IDEA as a project.
-- Wait for things to set up before proceeding.
+这条分支只负责 `NeoForge 1.21.1`。
 
-# Things you need to *edit*
-Before coding your awesome mod, you are going to need to fill out it's basic information.
-This is done in `build.txt` file.
+如果你要做别的 Minecraft 版本，直接切到对应分支，不在 `project.toml` 里选 profile，也不在 Gradle 参数里传 `templateProfile`。
 
-You will have to fill out `# Mod Info` category.
-If you don't want to use HammerLib, simply remove `hl_version` and delete the mod dependency in `/src/main/resources/META-INF/mods.toml`.
+这套模板现在的目标很简单：
 
-Afterwards, fill out `cf_project` and `modrinth_project` (both are optional) with your project IDs (Modrinth is highyly recommended to allow for forge update checking)
+- 主配置只改 `project.toml`
+- 构建和运行用官方 `ModDevGradle`
+- 不再维护旧的 `build.txt`
+- 依赖、Mixin 和发布配置尽量数据化
 
-# Things you need to *know*
-`build_candidate` to `false` if you are building a public deploy.
-When the variable is left at `false`, each build will increment the last piece of SemVer (`mod_version`) to +1, so you don't have to worry about it every time.
-Otherwise, use `true` when you're building a dev build to test in a normal environment (like a modpack).
+## 最短上手路径
 
-By default, the template project uses your Modrinth to perform forge version checking.
-The homepage is also set to Modrinth by default.
-If you ever wish to change this, do so in `/src/main/resources/META-INF/mods.toml`.
+### 1. 先改 `project.toml`
+
+第一次通常只需要先改这些：
+
+```toml
+schema_version = 1
+template_version = "1.21.1-template-1.0.0"
+
+[mod]
+mod_id = "yourmod"
+mod_name = "Your Mod"
+version = "1.0.0"
+version_suffix = ""
+group = "com.yourname.yourmod"
+authors = ["Your Name"]
+license = "MIT"
+description = "What this mod does."
+```
+
+### 2. 把示例内容换成你自己的
+
+最先要看的几个位置：
+
+1. `src/main/java/org/pickaid/example/Example.java`
+2. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
+3. `src/scaffolds/modern-neoforge/templates/META-INF/neoforge.mods.toml`
+4. `src/templates/mixins.json`
+
+如果你不用 Mixin，就把示例 Mixin 删掉，同时把 `src/templates/mixins.json` 一起清掉。
+
+### 3. 导入 Gradle 项目并跑一次构建
+
+```bash
+./gradlew help
+./gradlew build
+```
+
+这支是 `ModDevGradle` 模板，不再走 `genIntellijRuns` 那套旧流程。导入 Gradle 项目后直接让 IDE 同步即可。
+
+## 常用命令
+
+```bash
+./gradlew runClient
+./gradlew runServer
+./gradlew runData
+./gradlew publishToMavenLocal
+```
+
+## 你会经常改到的地方
+
+### `project.toml`
+
+主配置入口。这里负责：
+
+- 模组基本信息
+- feature 开关
+- 当前分支已经校准好的 dev pack
+- 额外仓库
+- 额外依赖
+- 发布配置
+- 产物命名
+
+### `project.local.toml`
+
+本机私有配置，不进 git。适合放：
+
+- `mc_user`
+- 临时 Maven 用户名和密码
+- Modrinth / CurseForge token
+
+可以直接从 [`project.local.toml.example`](project.local.toml.example) 复制。
+
+### `src/main/java`
+
+标准 Java 源码目录。示例入口和示例 Mixin 都在这里。
+
+### `src/scaffolds/modern-neoforge/templates`
+
+分支自己的 `neoforge.mods.toml` 模板。构建时会展开成真正的元数据文件。
+
+### `src/templates/mixins.json`
+
+共享的 Mixin 配置模板。构建时会生成 `${mod_id}.mixins.json`。
+
+## 这条分支现在的范围
+
+这条分支已经明确收束为 `NeoForge 1.21.1 + ModDevGradle`。
+
+- 不接受 `[platform]`
+- 不接受 `-PtemplateProfile=...`
+- 不再兼容 `build.txt`
+
+如果你需要别的 Minecraft 版本，就切到对应版本分支。

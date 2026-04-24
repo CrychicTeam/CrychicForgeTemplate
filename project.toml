@@ -1,0 +1,120 @@
+schema_version = 1
+template_version = "1.21.1-template-1.0.0"
+
+[mod]
+mod_id = "example"
+mod_name = "example"
+version = "0.0.1"
+version_suffix = ""
+group = "com.mihono.pickaid"
+authors = ["example"]
+license = "MIT"
+description = "Pexample.\nexample line."
+credits = "None"
+issue_tracker_url = "https://github.com/org/repo/issues"
+
+[features]
+jei = false
+curios = false
+geckolib = false
+player_animator = false
+mixin_extras = true
+
+[dev_packs]
+# This branch keeps dev packs intentionally small until each helper pack has
+# been re-curated for NeoForge 1.21.1.
+curios = false
+
+[overrides]
+# Only override curated versions when an enabled built-in feature needs a
+# different version than the template default.
+# jei_version = "19.27.0.340"
+# curios_version = "9.5.1+1.21.1"
+# geckolib_version = "4.8.4"
+# player_animator_version = "2.0.4+1.21.1"
+# bendylib_version = "5.1"
+# mixin_extras_version = "0.5.4"
+
+[repositories]
+# These common repositories are already filled in for you.
+# Most projects can leave this block alone and only add extra entries when a
+# mod or library lives somewhere else.
+# You can also use the inline-table form when you want a clearer display name
+# or a content filter for specific groups:
+# custom_repo = { url = "https://maven.example.com/releases", name = "Example", groups = ["com.example"] }
+blamejared = "https://maven.blamejared.com/"
+tterrag = "https://maven.tterrag.com/"
+sponge = "https://repo.spongepowered.org/maven"
+geckolib = "https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/"
+curios = "https://maven.theillusivec4.top/"
+kosmx = "https://maven.kosmx.dev/"
+cursemaven = "https://cursemaven.com"
+architectury = "https://maven.architectury.dev"
+latvian = "https://maven.latvian.dev/releases"
+jitpack = "https://jitpack.io"
+
+[dependencies]
+# Use nested tables by Gradle-style bucket name.
+# Buckets ending in _api are for libraries you expose to downstream compile
+# consumers. deobf_* buckets are for mod dependencies that need remapping.
+# Example:
+# [dependencies.deobf_api]
+# registrate_api = "com.tterrag.registrate:Registrate:MC1.21-1.3.0+50"
+#
+# [dependencies.deobf_compile_only]
+# jei_common_api = "mezz.jei:jei-1.21.1-common-api:19.27.0.340"
+# jei_neoforge_api = "mezz.jei:jei-1.21.1-neoforge-api:19.27.0.340"
+#
+# [dependencies.deobf_runtime_only]
+# jei_runtime = "mezz.jei:jei-1.21.1-neoforge:19.27.0.340"
+#
+# [dependencies.deobf_implementation]
+# geckolib = "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.4"
+# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:2.0.4+1.21.1"
+# mixinextras_neoforge = "io.github.llamalad7:mixinextras-neoforge:0.5.4"
+#
+# [dependencies.compile_only]
+# mixinextras_common = "io.github.llamalad7:mixinextras-common:0.5.4"
+#
+# [dependencies.annotation_processor]
+# mixinextras_common_processor = "io.github.llamalad7:mixinextras-common:0.5.4"
+#
+# [dependencies.jarjar]
+# helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+
+[compat]
+# Optional legacy compatibility keys for projects that still have custom
+# build.gradle logic reading config.<name> values directly.
+# Keep these minimal and migrate them away when the project no longer needs
+# the old keys.
+# reference_projects = ""
+
+[publish]
+# Leave blank for local-only publishing. MAVEN_URL can override this in CI.
+maven_url = "https://maven.mihono.cn/repository/pickaid1211/"
+# Local machine settings should normally go in project.local.toml instead:
+# - [run].mc_user
+# - [publish].maven_user / maven_password / modrinth_token / curseforge_token
+# See project.local.toml.example.
+#
+# Temporary fallbacks are still accepted here, but prefer env vars or
+# project.local.toml and do not commit filled-in secrets.
+# CurseForge upload tokens are generated from the API Tokens page:
+# https://support.curseforge.com/support/solutions/articles/9000197321-curseforge-api
+# Direct page:
+# https://authors-old.curseforge.com/account/api-tokens
+# Modrinth PATs are generated from user settings:
+# https://docs.modrinth.com/api/
+# Settings entry:
+# https://modrinth.com/settings/account
+# maven_user = ""
+# maven_password = ""
+# modrinth_token = ""
+# curseforge_token = ""
+curseforge_project = 0
+modrinth_project = ""
+release_type = "alpha"
+
+[naming]
+archive_name = "example"
+jar_format = "{archive_name}-{mc_version}-{version}"

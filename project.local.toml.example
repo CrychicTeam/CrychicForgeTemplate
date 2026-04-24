@@ -1,0 +1,21 @@
+[run]
+# Optional.
+# Format: "PlayerName" or "PlayerName,uuid-without-dashes"
+mc_user = "DevPlayer,00000000000000000000000000000001"
+
+[build]
+# Optional local toggle for the legacy formal-version increment flow.
+formal_version = false
+
+[compat]
+# Optional local-only compatibility overrides used by some older helper flows.
+reference_projects = ""
+
+[publish]
+# Optional local-only credential fallbacks.
+# Prefer environment variables for real CI/release usage.
+# maven_url = "https://maven.example.com/releases"
+# maven_user = ""
+# maven_password = ""
+# modrinth_token = ""
+# curseforge_token = ""
