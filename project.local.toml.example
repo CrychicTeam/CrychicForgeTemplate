@@ -8,7 +8,7 @@ mc_user = "DevPlayer,00000000000000000000000000000001"
 formal_version = false
 
 [compat]
-# Optional local-only compatibility switches used by some older helper flows.
+# Optional local-only compatibility overrides used by some older helper flows.
 reference_projects = ""
 
 [publish]

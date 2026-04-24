@@ -130,6 +130,15 @@ jitpack = "https://jitpack.io"
 # spell: Caelus + Iron's Spellbooks
 # kubejs: Architectury + Rhino + KubeJS runtime
 
+[compat]
+# Optional legacy compatibility keys for projects that still have custom
+# build.gradle logic reading config.<name> values directly.
+# Keep these minimal and migrate them away when the project no longer needs
+# the old keys.
+# reference_projects = false
+# kubejs_version = "2001.6.4-build.120"
+# rhino_version = "2001.2.2-build.18"
+
 [publish]
 # Leave blank for local-only publishing. MAVEN_URL can override this in CI.
 maven_url = "https://maven.mihono.cn/repository/pickaid1201/"

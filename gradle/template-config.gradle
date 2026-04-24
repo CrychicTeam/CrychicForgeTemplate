@@ -123,6 +123,7 @@ def featuresTable = expectTable(templateParsed, "features")
 def devPacksTable = templateParsed.getTable("dev_packs")
 def repositoriesTable = templateParsed.getTable("repositories")
 def dependenciesTable = templateParsed.getTable("dependencies")
+def compatTable = templateParsed.getTable("compat")
 def publishTable = expectTable(templateParsed, "publish")
 def namingTable = expectTable(templateParsed, "naming")
 def overridesTable = templateParsed.getTable("overrides")
@@ -139,7 +140,7 @@ def localPublishTable = localParsed?.getTable("publish")
 
 // project.toml is intentionally small at the top level so authors can see the
 // supported surface at a glance and configuration errors stay fail-fast.
-def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "overrides", "publish", "naming"] as Set
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "compat", "overrides", "publish", "naming"] as Set
 def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
@@ -275,8 +276,34 @@ def parseRepositoryTable = { def table, String prefix = "" ->
     repositories
 }
 
+def parseCompatEntries = { def table, String path ->
+    def entries = [:]
+    if (table == null) {
+        return entries
+    }
+
+    table.keySet().each { key ->
+        def entryPath = qualifyPath(path, key)
+        if (table.isString(key)) {
+            entries[key] = table.getString(key)
+        } else if (table.isBoolean(key)) {
+            entries[key] = table.getBoolean(key).toString()
+        } else if (table.isLong(key)) {
+            entries[key] = table.getLong(key).toString()
+        } else if (table.isDouble(key)) {
+            entries[key] = table.getDouble(key).toString()
+        } else {
+            failConfig("Compat entry ${entryPath} must be a string, boolean, or number")
+        }
+    }
+
+    entries
+}
+
 def builtinRepositories = parseRepositoryTable(builtinRepositoriesTable, "builtin_repositories")
 def customRepositories = parseRepositoryTable(repositoriesTable)
+def projectCompatEntries = parseCompatEntries(compatTable, "compat")
+def localCompatEntries = parseCompatEntries(localCompatTable, "compat")
 
 def parseNotation = { String notation, String path ->
     def parts = notation.split(":", 3)
@@ -554,7 +581,8 @@ ext.templatePlatform = [
 ext.templateLocal = [
     mcUser           : optionalStringFromTable(localRunTable, "mc_user"),
     formalVersion    : optionalBooleanFromTable(localBuildTable, "formal_version", false),
-    referenceProjects: optionalStringFromTable(localCompatTable, "reference_projects")
+    referenceProjects: localCompatEntries.get("reference_projects", ""),
+    compatEntries    : localCompatEntries
 ]
 
 ext.resolvedFeatureVersions = [
@@ -654,17 +682,10 @@ ext.templateDevPackDependencies = renderDependencySpecs(devPackDependencySpecs, 
 
 def compatConfig = new ConfigObject()
 compatConfig.putAll([
-    enable_annotation   : "true",
     mod_version         : finalVersion,
     formal_version      : project.ext.templateLocal.formalVersion.toString(),
     registrate_version  : resolvedFeatureVersions.registrate,
-    jei_version         : resolvedFeatureVersions.jei,
-    curios_version      : resolvedFeatureVersions.curios,
-    geckolib_version    : resolvedFeatureVersions.geckolib,
-    playeranimator_version: resolvedFeatureVersions.playerAnimator,
     citadel_version      : "",
-    bendylib_version    : resolvedFeatureVersions.bendylib,
-    mixin_extras_version: resolvedFeatureVersions.mixinExtras,
     l2_library_version  : "",
     l2damagetracker_version: "",
     l2serial_version    : "",
@@ -700,6 +721,11 @@ compatConfig.putAll([
     incompatible_mods   : "",
     embedded_mods       : ""
 ])
+compatConfig.putAll(projectCompatEntries)
+compatConfig.putAll(project.ext.templateLocal.compatEntries)
 
 project.ext.configFile = projectFile
 project.ext.config = compatConfig
+project.ext.hasConfig = { String key ->
+    config.isSet(key)
+}
