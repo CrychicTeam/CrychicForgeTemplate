@@ -1,4 +1,4 @@
-package org.pickaid.modid.mixins;
+package org.pickaid.example.mixins;
 
 import net.minecraft.world.entity.vehicle.Minecart;
 import org.spongepowered.asm.mixin.Mixin;

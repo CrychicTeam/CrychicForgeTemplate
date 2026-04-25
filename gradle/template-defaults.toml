@@ -1,13 +1,21 @@
-# Keep this file intentionally curated. Project-specific extras should go in
-# project.toml via [repositories] and [dependencies.*].
-defaults_revision = "1.20.1-r5"
+# Keep this branch-specific defaults file intentionally curated. Project-level
+# extras belong in project.toml via [repositories] and [dependencies.*].
+defaults_revision = "forge-1.20.1-r5"
 
 [platform]
+loader = "forge"
+publish_loader = "Forge"
 mc_version = "1.20.1"
 mc_range = "[1.20.1,1.21)"
+loader_version = "47.4.10"
+loader_version_range = "[47,)"
 forge_version = "47.4.10"
 forge_range = "[47,)"
 java = "17"
+mixin_extras_group = "com.github.llamalad7.mixinextras"
+parchment_mappings = "2023.09.03"
+game_test_namespace_property = "forge.enabledGameTestNamespaces"
+supported_dev_packs = ["basic", "appleskin", "combat", "curios", "spell", "kubejs"]
 
 [versions]
 registrate = "MC1.20-1.3.2"
@@ -18,9 +26,6 @@ player_animator = "1.0.2+1.20"
 bendylib = "1.0.2"
 mixin_extras = "0.2.0-beta.8"
 
-# Built-in dependency repositories used by the curated template surface.
-# Projects should only add to [repositories] when they need something outside
-# this set.
 [builtin_repositories.blamejared]
 name = "Jared's Maven"
 url = "https://maven.blamejared.com/"
@@ -70,24 +75,21 @@ name = "JitPack"
 url = "https://jitpack.io"
 groups = ["com.github.rtyley", "com.github.llamalad7.mixinextras"]
 
-# Core template dependencies that every generated project starts with.
 [builtin_dependencies.deobf_api]
 registrate = "com.tterrag.registrate:Registrate:{registrate}"
 
-# Feature-curated dependencies. These stay in defaults so build.gradle does not
-# need one hard-coded branch per ecosystem mod.
 [feature_support.jei.dependencies.deobf_compile_only]
 jei_common_api = "mezz.jei:jei-{mc_version}-common-api:{jei}"
-jei_forge_api = "mezz.jei:jei-{mc_version}-forge-api:{jei}"
+jei_loader_api = "mezz.jei:jei-{mc_version}-{jei_loader}-api:{jei}"
 
 [feature_support.jei.dependencies.deobf_runtime_only]
-jei_runtime = "mezz.jei:jei-{mc_version}-forge:{jei}"
+jei_runtime = "mezz.jei:jei-{mc_version}-{jei_loader}:{jei}"
 
 [feature_support.curios.dependencies.deobf_compile_only]
-curios = "top.theillusivec4.curios:curios-forge:{curios}"
+curios = "top.theillusivec4.curios:curios-{curios_loader}:{curios}"
 
 [feature_support.geckolib.dependencies.deobf_implementation]
-geckolib = "software.bernie.geckolib:geckolib-neoforge-{mc_version}:{geckolib}"
+geckolib = "software.bernie.geckolib:geckolib-{geckolib_loader}-{mc_version}:{geckolib}"
 
 [feature_support.geckolib.dependencies.implementation]
 mclib = "com.eliotlash.mclib:mclib:20"
@@ -96,22 +98,20 @@ mclib = "com.eliotlash.mclib:mclib:20"
 mclib_runtime = "com.eliotlash.mclib:mclib:20"
 
 [feature_support.player_animator.dependencies.deobf_implementation]
-player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:{player_animator}"
+player_animator = "dev.kosmx.player-anim:player-animation-lib-{player_animator_loader}:{player_animator}"
 
 [feature_support.player_animator.dependencies.deobf_runtime_only]
-bendylib = "io.github.kosmx.bendy-lib:bendy-lib-forge:{bendylib}"
+bendylib = "io.github.kosmx.bendy-lib:bendy-lib-{bendylib_loader}:{bendylib}"
 
 [feature_support.mixin_extras.dependencies.compile_only]
-mixinextras_common = "com.github.llamalad7.mixinextras:mixinextras-common:{mixin_extras}"
+mixinextras_common = "{mixin_extras_group}:mixinextras-common:{mixin_extras}"
 
 [feature_support.mixin_extras.dependencies.annotation_processor]
-mixinextras_common_processor = "com.github.llamalad7.mixinextras:mixinextras-common:{mixin_extras}"
+mixinextras_common_processor = "{mixin_extras_group}:mixinextras-common:{mixin_extras}"
 
 [feature_support.mixin_extras.dependencies.deobf_implementation]
-mixinextras_forge = "com.github.llamalad7.mixinextras:mixinextras-forge:{mixin_extras}"
+mixinextras_loader = "{mixin_extras_group}:mixinextras-{mixin_extras_loader}:{mixin_extras}"
 
-# Built-in local helper packs.
-# These are intentionally focused on common dev/runtime inspection cases.
 [dev_packs.basic]
 description = "Basic local HUD and inspection helpers."
 

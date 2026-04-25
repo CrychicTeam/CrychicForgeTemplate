@@ -104,10 +104,12 @@ version_suffix = "hotfix.1"
 
 正式开始写逻辑前，先把这些占位内容改成你自己的：
 
-1. `src/main/java/org/pickaid/modid/`
-2. `src/main/resources/assets/modid/`
-3. `src/main/resources/mixins.modid.json`
-4. `src/main/java/org/pickaid/modid/Example.java`
+1. `src/scaffolds/legacy-forge/java/org/pickaid/example/Example.java`
+2. `src/scaffolds/legacy-forge/templates/META-INF/mods.toml`
+3. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
+4. `src/templates/mixins.json`
+
+如果你不用 Mixin，就把示例 Mixin 和 `src/templates/mixins.json` 一起删掉。
 
 ### 4. 先构建一次
 
@@ -538,8 +540,8 @@ runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
 先改这三类就够了：
 
 1. `project.toml` 里的 `[mod]`
-2. `org/pickaid/modid` 相关 Java 包路径
-3. `assets/modid` 和 `mixins.modid.json`
+2. `src/scaffolds/legacy-forge/java/org/pickaid/example/Example.java` 里的包名和类名
+3. `src/scaffolds/legacy-forge/templates/META-INF/mods.toml` 与 `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
 
 然后跑一次：
 

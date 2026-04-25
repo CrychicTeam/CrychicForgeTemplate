@@ -82,10 +82,12 @@ the final version becomes `1.2.0-hotfix.1`.
 
 Replace these before writing real code:
 
-1. `src/main/java/org/pickaid/modid/`
-2. `src/main/resources/assets/modid/`
-3. `src/main/resources/mixins.modid.json`
-4. `src/main/java/org/pickaid/modid/Example.java`
+1. `src/scaffolds/legacy-forge/java/org/pickaid/example/Example.java`
+2. `src/scaffolds/legacy-forge/templates/META-INF/mods.toml`
+3. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
+4. `src/templates/mixins.json`
+
+If you do not use Mixin, remove the sample mixin and `src/templates/mixins.json` together.
 
 ### 4. Generate runs and build once
 
