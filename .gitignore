@@ -20,6 +20,7 @@ build
 # other
 eclipse
 run
+tools/
 docs/superpowers/
 project.local.toml
 
