@@ -126,7 +126,7 @@ version_suffix = "hotfix.1"
 - 本机临时发布凭证
 - 本机联调用的小开关
 
-可以直接从 [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate/project.local.toml.example) 复制。
+可以直接从 [`project.local.toml.example`](project.local.toml.example) 复制。
 
 ## `project.toml` 怎么看
 
@@ -263,11 +263,9 @@ redspace = { url = "https://code.redspace.io/releases", name = "Redspace", group
 
 ### `[dependencies.*]`
 
-这是通用依赖层。
+这里就是“额外依赖配置区”。
 
-你可以把它理解成：
-
-> feature 不够用时，用这里；你要加自己项目特有的依赖时，也用这里。
+大多数项目只要改这里，就不用再去手动折腾 `build.gradle`。
 
 支持的 bucket 有这些：
 
@@ -288,23 +286,23 @@ redspace = { url = "https://code.redspace.io/releases", name = "Redspace", group
 - `deobf_test_runtime_only`
 - `jarjar`
 
-如果你现在看这些名字有点乱，只先记住最常用的四个：
+Gradle 子项目不放在 `[dependencies.*]`，它们单独走 `[embedded_projects.*]`。
+
+如果你只想先记住最常用的几个，够用了：
 
 - `deobf_api`：你暴露给下游的 mod API 依赖
 - `deobf_implementation`：你自己内部要用的 mod 依赖
 - `deobf_compile_only`：只需要编译时可见的 mod 依赖
 - `deobf_runtime_only`：只需要本地运行时带上的 mod 依赖
 
-再简单一点：
+普通 Java 库就用同名的不带 `deobf_` 版本：
 
-- 想让下游也看见：`api`
-- 只想自己用：`implementation`
-- 只是编译要用：`compile_only`
-- 只是运行要用：`runtime_only`
+- `api`
+- `implementation`
+- `compile_only`
+- `runtime_only`
 
-前面带 `deobf_` 的，就是给 mod 依赖准备的。
-
-这里我已经把一些常见写法作为注释示例放进 `project.toml` 了，比如：
+`project.toml` 里已经放了不少注释示例，常见的像：
 
 - Registrate
 - JEI API / 运行时
@@ -315,9 +313,67 @@ redspace = { url = "https://code.redspace.io/releases", name = "Redspace", group
 - KubeJS / Rhino
 - Architectury
 
-这些默认都是注释状态，目的是让你以后需要时可以直接抄，不用再回头找坐标。
+这些默认都是注释状态，目的是你以后直接改一行就能用，不用再回头找坐标。
+
+简单字符串写法：
+
+```toml
+[dependencies.deobf_api]
+registrate = "com.tterrag.registrate:Registrate:MC1.20-1.3.2"
+
+[dependencies.deobf_compile_only]
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
+rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
+```
+
+需要附加参数时，用 inline table：
+
+```toml
+[dependencies.deobf_implementation]
+architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transitive = false }
+```
 
 如果你已经通过 `[features]` 开了某个集成，通常就不要再在 `[dependencies.*]` 里手工重复声明同一份依赖。
+
+然后是最容易搞混的 `jarjar`。
+
+先记一句：
+
+- `jarjar` 管的是“最终 jar 里带不带它”
+- `api` / `compile_only_api` 管的是“别人依赖你时编译能不能看到它”
+
+最常见有三种情况：
+
+1. 只是想把外部库打进最终 jar，不对下游暴露：
+
+```toml
+[dependencies.jarjar]
+helper = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
+```
+
+2. 外部库既要打包，又要让下游编译时看见：
+
+```toml
+[dependencies.compile_only_api]
+helper_api = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
+```
+
+这里的 `range` 会把这条依赖同时加入 `jarjar`。
+如果你希望当前工程在运行时也直接走这条依赖，把 `compile_only_api` 换成 `api` 或 `implementation` 即可。
+
+3. 主模组要把 Gradle 子项目一起打包：
+
+```toml
+[embedded_projects.api]
+core = ":core"
+# core = { path = ":core", configuration = "namedElements" }
+
+[embedded_projects.implementation]
+internal = ":internal"
+```
+
+- `[embedded_projects.api]`：把子项目打进主模组，同时让下游只依赖主模组时也能正常编译。
+- `[embedded_projects.implementation]`：把子项目打进主模组，但不把它变成公开编译依赖。
 
 ### `[publish]`
 
@@ -452,26 +508,15 @@ runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
 
 - `https://services.gradle.org`
 
-如果你在中国大陆，下载慢是正常情况。
+如果你本地下载慢，直接在你自己的机器上改 `gradle/wrapper/gradle-wrapper.properties` 里的 `distributionUrl` 就行。
 
-模板里带了一个切换脚本：
+建议做法很简单：
 
-```bash
-bash tools/set-gradle-wrapper-mirror.sh official
-bash tools/set-gradle-wrapper-mirror.sh aliyun
-bash tools/set-gradle-wrapper-mirror.sh huawei
-```
+- 仓库里默认保留官方地址
+- 你本地需要镜像时，自己改成本地可用的镜像
+- 准备提交时，再切回官方地址
 
-可选预设：
-
-- `official`
-- `aliyun`
-- `huawei`
-
-比较稳妥的做法是：
-
-- 本地慢，就先切镜像
-- 准备提交时，再切回 `official`
+如果你在中国大陆开发，阿里云或华为云的 Gradle 镜像通常会更顺手一些。
 
 ## 常用命令
 

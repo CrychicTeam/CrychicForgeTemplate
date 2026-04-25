@@ -102,7 +102,7 @@ This file is ignored by default and is where machine-local values belong:
 - temporary local publishing credentials
 - local compatibility toggles
 
-You can start from [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate/project.local.toml.example).
+You can start from [`project.local.toml.example`](project.local.toml.example).
 
 ## `project.toml` Reference
 
@@ -197,8 +197,9 @@ spell_repo = { url = "https://code.redspace.io/releases", name = "Redspace", gro
 
 ### `[dependencies.*]`
 
-This is the generic dependency layer. It is there so you do not need to keep editing `build.gradle` for every new library.
-The built-in feature integrations also resolve through config now, instead of each ecosystem mod being hard-coded in `build.gradle`.
+This is the main "extra dependencies" area.
+
+For most projects, this is enough. You should not need to keep editing `build.gradle` every time you add one more library or mod.
 
 Supported buckets:
 
@@ -219,12 +220,16 @@ Supported buckets:
 - `deobf_test_runtime_only`
 - `jarjar`
 
-How to choose:
+Gradle subprojects do not go under `[dependencies.*]`. They use `[embedded_projects.*]` instead.
 
-- `api` / `deobf_api`: your public API exposes types from that library or mod, so downstream compile classpaths must also see it.
-- `implementation` / `deobf_implementation`: your mod uses it internally, but you do not want to expose it as part of your downstream compile surface.
-- `compile_only_api` / `deobf_compile_only_api`: downstream compile needs it, but runtime is expected to provide it elsewhere, so it should not be pulled into local runtime automatically.
-- `compile_only` / `deobf_compile_only`: only this project needs it at compile time; downstream projects should not inherit it.
+If you only want the short version:
+
+- `deobf_api`: another mod's types appear in your own public API, so downstream consumers must also see it
+- `deobf_implementation`: your mod uses that mod internally
+- `deobf_compile_only`: needed to compile, but not part of your runtime bundle
+- `deobf_runtime_only`: only needed when you launch locally
+
+For normal non-mod libraries, use the same buckets without the `deobf_` prefix.
 
 Simple entries use string shorthand:
 
@@ -244,14 +249,45 @@ Advanced entries use inline tables:
 architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transitive = false }
 ```
 
-`jarjar` always needs an inline table with a version range:
+If a pack is already enabled in `[dev_packs]`, do not duplicate the same helper mods manually under `[dependencies.*]`.
+
+The easy way to think about `jarjar` is this:
+
+- `jarjar` decides whether something is bundled into your final jar
+- `api` / `compile_only_api` decide whether downstream consumers can compile against it
+
+The three common cases are:
+
+1. Bundle an external helper library and keep it internal:
 
 ```toml
 [dependencies.jarjar]
 helper = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
 ```
 
-If a pack is already enabled in `[dev_packs]`, do not duplicate the same helper mods manually under `[dependencies.*]`.
+2. Bundle an external library and also let downstream consumers compile against its types:
+
+```toml
+[dependencies.compile_only_api]
+helper_api = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
+```
+
+That `range` entry tells the template to feed the same dependency into `jarjar`.
+If your own project should use it at runtime too, use `api` or `implementation` with the same `range` pattern.
+
+3. Bundle Gradle subprojects into the main mod:
+
+```toml
+[embedded_projects.api]
+core = ":core"
+# core = { path = ":core", configuration = "namedElements" }
+
+[embedded_projects.implementation]
+internal = ":internal"
+```
+
+- `[embedded_projects.api]`: bundle the subproject and let downstream builds compile against it through the main published artifact.
+- `[embedded_projects.implementation]`: bundle the subproject but keep it internal to the main mod.
 
 ### `[publish]`
 
@@ -331,25 +367,15 @@ The repository keeps the official Wrapper URL by default:
 
 - `https://services.gradle.org`
 
-That is the safest neutral default across regions and matches the standard Gradle Wrapper flow. If a local mirror is needed, switch it locally instead of committing a region-specific URL.
+If downloads are slow in your region, change `distributionUrl` in `gradle/wrapper/gradle-wrapper.properties` on your own machine instead of committing a region-specific mirror URL.
 
-The template ships with a helper script:
+The practical rule is:
 
-```bash
-bash tools/set-gradle-wrapper-mirror.sh official
-bash tools/set-gradle-wrapper-mirror.sh aliyun
-bash tools/set-gradle-wrapper-mirror.sh huawei
-```
+- keep the repo on the official URL
+- switch locally if you need a mirror
+- switch back before you commit
 
-Built-in presets:
-
-- `official`: the default Gradle distribution host
-- `aliyun`: the Aliyun Gradle mirror
-- `huawei`: the Huawei Cloud Gradle mirror
-
-For mainland China development environments, `aliyun` or `huawei` will often be the better first try.
-
-Switch back to `official` before committing if you want the repo to stay region-neutral.
+For mainland China development environments, an Aliyun or Huawei Cloud Gradle mirror is usually the first thing worth trying.
 
 ### Publish to local Maven
 
