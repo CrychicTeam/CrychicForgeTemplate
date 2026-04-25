@@ -4,11 +4,11 @@
 
 English | [中文版](README.MD)
 
-This branch is only for `NeoForge 1.21.1`.
+This branch has one job: give you a clean `NeoForge 1.21.1` starting point.
 
 If you need another Minecraft version, switch to the matching branch. Do not try to select versions inside `project.toml`, and do not pass `-PtemplateProfile=...`.
 
-This template now has a narrow focus:
+The rules on this branch are straightforward:
 
 - keep the main project config in `project.toml`
 - use official `ModDevGradle`
@@ -65,6 +65,47 @@ This is a `ModDevGradle` branch, so the old `genIntellijRuns` pattern is no long
 ./gradlew publishToMavenLocal
 ```
 
+## Using `jarjar` without fighting the build
+
+The short version is:
+
+- `jarjar` decides whether something is bundled into your final jar
+- `api` / `compile_only_api` decide whether downstream consumers can compile against it
+- `[embedded_projects.*]` decide whether Gradle subprojects get bundled into the main mod
+
+The three common cases are:
+
+1. Bundle an external helper library and keep it internal:
+
+```toml
+[dependencies.jarjar]
+helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+```
+
+2. Bundle an external library and also let downstream consumers compile against it:
+
+```toml
+[dependencies.compile_only_api]
+helper_api = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+```
+
+That `range` entry tells the template to feed the same dependency into `jarjar`.
+If your own project should use it at runtime too, use `api` or `implementation` with the same `range` pattern.
+
+3. Bundle Gradle subprojects into the main mod:
+
+```toml
+[embedded_projects.api]
+core = ":core"
+# core = { path = ":core", configuration = "namedElements" }
+
+[embedded_projects.implementation]
+internal = ":internal"
+```
+
+- `[embedded_projects.api]`: bundle the subproject and let downstream builds compile against it through the main published artifact.
+- `[embedded_projects.implementation]`: bundle the subproject but keep it internal to the main mod.
+
 ## Files You Will Touch Often
 
 ### `project.toml`
@@ -95,15 +136,15 @@ Standard Java source root. The sample mod entrypoint and sample mixin both live 
 
 ### `src/scaffolds/modern-neoforge/templates`
 
-This branch's `neoforge.mods.toml` template. The build expands it into the generated metadata file.
+This is the `neoforge.mods.toml` template used by the build. Touch it only when you need to change the generated mod metadata structure.
 
 ### `src/templates/mixins.json`
 
-Shared Mixin configuration template. The build turns it into `${mod_id}.mixins.json`.
+This is the shared Mixin config template. Change it only if you actually use Mixins; otherwise remove the sample together with the sample mixin class.
 
 ## Scope of This Branch
 
-This branch is now explicitly `NeoForge 1.21.1 + ModDevGradle`.
+This branch is simply `NeoForge 1.21.1 + ModDevGradle`. It is not trying to carry the old template compatibility layers anymore.
 
 - no `[platform]`
 - no `-PtemplateProfile=...`

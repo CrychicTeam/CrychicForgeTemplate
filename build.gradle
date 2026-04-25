@@ -29,6 +29,7 @@ def templateBuiltinDependencies = project.ext.templateBuiltinDependencies
 def templateFeatureDependencies = project.ext.templateFeatureDependencies
 def templateDependencies = project.ext.templateDependencies
 def templateDevPackDependencies = project.ext.templateDevPackDependencies
+def templateEmbeddedProjects = project.ext.templateEmbeddedProjects
 def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
 def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
@@ -159,6 +160,58 @@ def createConfiguredDependency = { String notation, boolean transitive ->
     }
 }
 
+def projectDependencyNotation = { Object projectReference ->
+    if (projectReference instanceof Map) {
+        return new LinkedHashMap(projectReference as Map)
+    }
+    if (projectReference instanceof Project) {
+        return [path: projectReference.path]
+    }
+    if (projectReference instanceof CharSequence) {
+        return [path: projectReference.toString()]
+    }
+    throw new GradleException("Unsupported embedded project reference: ${projectReference}")
+}
+
+// embedApiProject(":core") is the common "subproject is embedded in this mod,
+// but downstream consumers should still see its compile surface" case.
+ext.embedApiProject = { Object projectReference ->
+    def dependencyNotation = projectDependencyNotation(projectReference)
+    def compileDependency = project.dependencies.add("compileOnlyApi", project.dependencies.project(dependencyNotation))
+    project.dependencies.add("jarJar", compileDependency)
+    project.dependencies.add("localRuntime", project.dependencies.project(dependencyNotation))
+}
+
+// embedProject(":impl") is the common "subproject is bundled into this mod,
+// but is not part of the downstream compile surface" case.
+ext.embedProject = { Object projectReference ->
+    def dependencyNotation = projectDependencyNotation(projectReference)
+    def implementationDependency = project.dependencies.add("implementation", project.dependencies.project(dependencyNotation))
+    project.dependencies.add("jarJar", implementationDependency)
+    project.dependencies.add("localRuntime", project.dependencies.project(dependencyNotation))
+}
+
+def addEmbeddedProjectDependency = { Map<String, Object> embeddedProjectSpec ->
+    def dependencyNotation = embeddedProjectSpec.configuration
+        ? [path: embeddedProjectSpec.path, configuration: embeddedProjectSpec.configuration]
+        : [path: embeddedProjectSpec.path]
+
+    if (project.findProject(embeddedProjectSpec.path as String) == null) {
+        throw new GradleException("Embedded project path not found: ${embeddedProjectSpec.path}")
+    }
+
+    if (embeddedProjectSpec.bucket == "api") {
+        ext.embedApiProject(dependencyNotation)
+        return
+    }
+    if (embeddedProjectSpec.bucket == "implementation") {
+        ext.embedProject(dependencyNotation)
+        return
+    }
+
+    throw new GradleException("Unsupported embedded project bucket: ${embeddedProjectSpec.bucket}")
+}
+
 def addJarJarDependency = { String notation, String range, String preferredVersion ->
     def dependency = project.dependencies.create(notation)
     dependency.version {
@@ -190,12 +243,141 @@ def recordPublishedPomDependency = { String notation, String scope ->
     ]
 }
 
+def sanitizePublishedPomVersion = { String version ->
+    if (version == null) {
+        return null
+    }
+
+    def sanitized = version.trim()
+    def mappedSuffix = sanitized.indexOf("_mapped_")
+    if (mappedSuffix >= 0) {
+        sanitized = sanitized.substring(0, mappedSuffix)
+    }
+    return sanitized
+}
+
+def pomNodeText = { Node node, String childName ->
+    def values = node[childName]
+    if (values == null || values.isEmpty()) {
+        return null
+    }
+    def text = values[0]?.text()
+    return text == null ? null : text.trim()
+}
+
+def collectGeneratedPomDependencies = { Node dependenciesNode ->
+    if (dependenciesNode == null) {
+        return []
+    }
+
+    dependenciesNode.children()
+        .findAll { it instanceof Node && it.name() == "dependency" }
+        .collect { Node dependencyNode ->
+            [
+                groupId   : pomNodeText(dependencyNode, "groupId"),
+                artifactId: pomNodeText(dependencyNode, "artifactId"),
+                version   : sanitizePublishedPomVersion(pomNodeText(dependencyNode, "version")),
+                scope     : pomNodeText(dependencyNode, "scope")
+            ]
+        }
+}
+
+def publishedPomDependencyFromGradleDependency = { dependency, String scope ->
+    if (scope == null || scope.isBlank()) {
+        return null
+    }
+
+    if (dependency instanceof org.gradle.api.artifacts.ProjectDependency) {
+        def dependencyProject = dependency.dependencyProject
+        return [
+            groupId   : dependencyProject.group?.toString(),
+            artifactId: dependencyProject.name,
+            version   : sanitizePublishedPomVersion(dependencyProject.version?.toString()),
+            scope     : scope
+        ]
+    }
+
+    return [
+        groupId   : dependency.group?.toString(),
+        artifactId: dependency.name,
+        version   : sanitizePublishedPomVersion(dependency.version?.toString()),
+        scope     : scope
+    ]
+}
+
+def collectDeclaredPomDependencies = { String configurationName, String scope ->
+    def configuration = configurations.findByName(configurationName)
+    if (configuration == null) {
+        return []
+    }
+
+    configuration.dependencies
+        .collect { dependency -> publishedPomDependencyFromGradleDependency(dependency, scope) }
+        .findAll { it != null }
+}
+
+def isEmbeddedImplementationDependency = { Map<String, String> dependencySpec ->
+    templateEmbeddedProjects.any { embeddedProjectSpec ->
+        if (embeddedProjectSpec.bucket != "implementation") {
+            return false
+        }
+
+        def embeddedProject = project.findProject(embeddedProjectSpec.path as String)
+        if (embeddedProject == null) {
+            return false
+        }
+
+        dependencySpec.groupId == embeddedProject.group?.toString() &&
+            dependencySpec.artifactId == embeddedProject.name &&
+            dependencySpec.version == sanitizePublishedPomVersion(embeddedProject.version?.toString())
+    }
+}
+
+def shouldPublishPomDependency = { Map<String, String> dependencySpec ->
+    if (dependencySpec.groupId == null || dependencySpec.artifactId == null || dependencySpec.version == null) {
+        return false
+    }
+    if (dependencySpec.groupId.startsWith("_")) {
+        return false
+    }
+    if (dependencySpec.groupId == "lib") {
+        return false
+    }
+    if (dependencySpec.groupId == "net.minecraftforge" && dependencySpec.artifactId == "forge") {
+        return false
+    }
+    if (dependencySpec.groupId == "net.neoforged" && dependencySpec.artifactId == "neoforge") {
+        return false
+    }
+    if (isEmbeddedImplementationDependency(dependencySpec)) {
+        return false
+    }
+    return true
+}
+
+def mergePublishedPomDependencies = { Node dependenciesNode ->
+    (
+        collectDeclaredPomDependencies("api", "compile") +
+            collectDeclaredPomDependencies("compileOnlyApi", "compile") +
+            collectDeclaredPomDependencies("implementation", "runtime") +
+            collectGeneratedPomDependencies(dependenciesNode) +
+            publishedPomDependencies
+    )
+        .findAll(shouldPublishPomDependency)
+        .unique { dependencySpec ->
+            "${dependencySpec.groupId}:${dependencySpec.artifactId}:${dependencySpec.scope ?: ''}"
+        }
+        .sort { left, right ->
+            "${left.groupId}:${left.artifactId}:${left.scope ?: ''}" <=> "${right.groupId}:${right.artifactId}:${right.scope ?: ''}"
+        }
+}
+
 def pomScopeForDependencyConfiguration = { String configuration ->
     switch (configuration) {
         case "api":
             return "compile"
         case "compileOnlyApi":
-            return "provided"
+            return "compile"
         case "implementation":
         case "runtimeOnly":
             return "runtime"
@@ -288,6 +470,8 @@ dependencies {
             addJarJarDependency(dependencySpec.notation, dependencySpec.range, dependencySpec.version)
         }
     }
+
+    templateEmbeddedProjects.each(addEmbeddedProjectDependency)
 
     def libraries = new File(file("libraries"), "${templatePlatform.mcVersion}")
     if (!libraries.isDirectory()) libraries.mkdirs()
@@ -455,17 +639,7 @@ publishing {
             pom.withXml {
                 def root = asNode()
                 def dependenciesNode = root.dependencies ? root.dependencies[0] : root.appendNode('dependencies')
-                def publishedDependencies = publishedPomDependencies
-                    .findAll { dependencySpec ->
-                        dependencySpec.groupId != "_all" &&
-                            !(dependencySpec.groupId == "net.neoforged" && dependencySpec.artifactId == "neoforge")
-                    }
-                    .unique { dependencySpec ->
-                        "${dependencySpec.groupId}:${dependencySpec.artifactId}:${dependencySpec.scope}"
-                    }
-                    .sort { left, right ->
-                        "${left.groupId}:${left.artifactId}:${left.scope}" <=> "${right.groupId}:${right.artifactId}:${right.scope}"
-                    }
+                def publishedDependencies = mergePublishedPomDependencies(dependenciesNode)
 
                 dependenciesNode.children().clear()
                 publishedDependencies.each { dependencySpec ->

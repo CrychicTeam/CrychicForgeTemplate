@@ -131,6 +131,7 @@ def featuresTable = expectTable(templateParsed, "features")
 def devPacksTable = templateParsed.getTable("dev_packs")
 def repositoriesTable = templateParsed.getTable("repositories")
 def dependenciesTable = templateParsed.getTable("dependencies")
+def embeddedProjectsTable = templateParsed.getTable("embedded_projects")
 def compatTable = templateParsed.getTable("compat")
 def publishTable = expectTable(templateParsed, "publish")
 def namingTable = expectTable(templateParsed, "naming")
@@ -148,7 +149,7 @@ def localPublishTable = localParsed?.getTable("publish")
 
 // project.toml is intentionally small at the top level so authors can see the
 // supported surface at a glance and configuration errors stay fail-fast.
-def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "compat", "overrides", "publish", "naming"] as Set
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "embedded_projects", "compat", "overrides", "publish", "naming"] as Set
 def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
@@ -178,6 +179,7 @@ def allowedDependencyBuckets = [
     deobf_test_runtime_only: [configuration: "testRuntimeOnly", deobf: true, supportsRange: false],
     jarjar                 : [configuration: "jarJar", deobf: false, supportsRange: true]
 ] as Map<String, Map<String, Object>>
+def allowedEmbeddedProjectBuckets = ["api", "implementation"] as Set
 
 def localFirstString = { String key, String defaultValue = "" ->
     def localValue = localPublishTable?.getString(key)
@@ -418,9 +420,86 @@ def parseDependencyTables = { def rootTable, String prefix = "" ->
     dependencySpecs
 }
 
+def parseEmbeddedProjectTables = { def rootTable, String prefix = "embedded_projects" ->
+    def embeddedProjectSpecs = []
+    if (rootTable == null) {
+        return embeddedProjectSpecs
+    }
+
+    rootTable.keySet().each { bucketKey ->
+        if (!allowedEmbeddedProjectBuckets.contains(bucketKey)) {
+            failConfig("Unknown embedded project bucket in ${prefix}: ${bucketKey}")
+        }
+
+        def bucketTable = rootTable.getTable(bucketKey)
+        if (bucketTable == null) {
+            failConfig("Embedded project bucket ${qualifyPath(prefix, bucketKey)} must be a TOML table")
+        }
+
+        bucketTable.keySet().each { projectKey ->
+            def entryPath = "${prefix}.${bucketKey}.${projectKey}"
+            def projectPath
+            def configuration = ""
+            def inlineTable = null
+
+            if (bucketTable.isString(projectKey)) {
+                projectPath = bucketTable.getString(projectKey)
+            } else if (bucketTable.isTable(projectKey)) {
+                inlineTable = bucketTable.getTable(projectKey)
+
+                if (inlineTable.contains("path") && !inlineTable.isString("path")) {
+                    failConfig("Embedded project ${entryPath}.path must be a string")
+                }
+                if (inlineTable.contains("configuration") && !inlineTable.isString("configuration")) {
+                    failConfig("Embedded project ${entryPath}.configuration must be a string")
+                }
+
+                projectPath = inlineTable.getString("path")
+                configuration = optionalStringFromTable(inlineTable, "configuration")
+            } else {
+                failConfig("Embedded project ${entryPath} must be a string or inline table")
+            }
+
+            if (projectPath == null || projectPath.isBlank()) {
+                failConfig("Embedded project ${entryPath} must define path")
+            }
+            if (!projectPath.startsWith(":")) {
+                failConfig("Embedded project ${entryPath} must use a Gradle project path like :core")
+            }
+
+            if (inlineTable != null) {
+                def allowedEntryKeys = ["path", "configuration"] as Set
+                inlineTable.keySet().each { key ->
+                    if (!allowedEntryKeys.contains(key)) {
+                        failConfig("Embedded project ${entryPath} has unsupported key ${key}")
+                    }
+                }
+            }
+
+            embeddedProjectSpecs << [
+                name         : projectKey,
+                bucket       : bucketKey,
+                path         : projectPath,
+                configuration: configuration
+            ]
+        }
+    }
+
+    def duplicatePaths = embeddedProjectSpecs
+        .groupBy { it.path }
+        .findAll { _, specs -> specs.size() > 1 }
+        .keySet()
+    if (!duplicatePaths.isEmpty()) {
+        failConfig("Embedded projects must not declare the same path more than once: ${duplicatePaths.join(', ')}")
+    }
+
+    embeddedProjectSpecs
+}
+
 // Generic dependency tables let projects opt into extra libraries without the
 // template growing one more hard-coded feature switch for every ecosystem mod.
 def templateDependencySpecs = parseDependencyTables(dependenciesTable)
+def templateEmbeddedProjectSpecs = parseEmbeddedProjectTables(embeddedProjectsTable)
 def builtinDependencySpecs = parseDependencyTables(builtinDependenciesTable, "builtin_dependencies")
 def supportedDevPacks = optionalStringArray(
     platformTable,
@@ -483,6 +562,7 @@ ext.templateTables = [
     devPacks : devPacksTable,
     repositories: repositoriesTable,
     dependencies: dependenciesTable,
+    embeddedProjects: embeddedProjectsTable,
     publish  : publishTable,
     naming   : namingTable,
     overrides: overridesTable
@@ -494,6 +574,7 @@ ext.templateRepositories = [
     devPacks: devPackRepositories.values().toList()
 ]
 ext.enabledDevPacks = enabledDevPacks
+ext.templateEmbeddedProjects = templateEmbeddedProjectSpecs
 
 def modId = expectStringFromTable(modTable, "mod_id", "mod")
 def modName = expectStringFromTable(modTable, "mod_name", "mod")

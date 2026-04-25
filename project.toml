@@ -81,6 +81,20 @@ jitpack = "https://jitpack.io"
 #
 # [dependencies.jarjar]
 # helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+#
+# `jarjar` 只负责把依赖打进你的模组 jar。
+# 如果这个依赖还要暴露给下游编译，请把它放进正常依赖桶，再加 `range`：
+# [dependencies.compile_only_api]
+# helper_api = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+#
+# 多模块工程里的子项目嵌入不要写在 [dependencies]，而是写在 [embedded_projects]：
+# [embedded_projects.api]
+# core = ":core"
+# # 或者：
+# # core = { path = ":core", configuration = "namedElements" }
+#
+# [embedded_projects.implementation]
+# internal = ":internal"
 
 [compat]
 # Optional legacy compatibility keys for projects that still have custom
