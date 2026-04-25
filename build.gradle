@@ -1,246 +1,355 @@
 buildscript {
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
+        maven { url "https://plugins.gradle.org/m2/" }
         mavenCentral()
-        maven { url = 'https://repo.spongepowered.org/repository/maven-public' }
-        maven { url = 'https://maven.parchmentmc.org' }
     }
     dependencies {
-        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '6.0.+'
         classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.+"
-        classpath "org.spongepowered:mixingradle:${mixingradle_version}"
-        classpath 'org.parchmentmc:librarian:1.+'
+        classpath "org.tomlj:tomlj:1.1.1"
     }
 }
 
 plugins {
-    id 'net.minecraftforge.gradle' version '6.0.+'
+    id 'java-library'
     id "com.modrinth.minotaur" version "2.+"
-    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id 'net.neoforged.moddev.legacyforge' version '2.0.141'
 }
 
-
-apply plugin: 'eclipse'
+apply plugin: 'idea'
 apply plugin: 'maven-publish'
-apply plugin: 'org.spongepowered.mixin'
 apply plugin: "com.matthewprenger.cursegradle"
+apply from: 'gradle/template-config.gradle'
 
-jarJar.enable()
+def template = project.ext.template
+def templatePlatform = project.ext.templatePlatform
+def templateLocal = project.ext.templateLocal
+def enabledFeatures = project.ext.enabledFeatures
+def enabledDevPacks = project.ext.enabledDevPacks
+def templateRepositories = project.ext.templateRepositories
+def templateBuiltinDependencies = project.ext.templateBuiltinDependencies
+def templateFeatureDependencies = project.ext.templateFeatureDependencies
+def templateDependencies = project.ext.templateDependencies
+def templateDevPackDependencies = project.ext.templateDevPackDependencies
+def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
+def templateAuthors = template.authors.join(", ")
+def renderedArchiveStem = template.renderedArchiveStem
+def hasModrinthTarget = !template.modrinthProject.isBlank()
+def hasCurseforgeTarget = template.curseforgeProject > 0L
+def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
+def runtimeDistributionJar = layout.buildDirectory.file("libs/${renderedArchiveStem}.jar")
+def mixinRefmapMappings = layout.buildDirectory.file("mixin/${template.modId}.refmap.json.mappings.tsrg")
+def mdgNamedToIntermediate = layout.buildDirectory.file("moddev/artifacts/namedToIntermediate.tsrg")
+def scaffoldJavaDir = file("src/scaffolds/legacy-forge/java")
+def metadataTemplateDir = file("src/scaffolds/legacy-forge/templates")
+def mixinTemplateFile = file("src/templates/mixins.json")
 
-ext.configFile = file("build.txt")
-configFile.withReader {
-    def prop = new Properties()
-    prop.load(it)
-    project.ext.config = new ConfigSlurper().parse(prop)
-    project.ext.hasConfig = { key ->
-        return config.isSet(key);
-    }
-}
-
-version = config.mod_version
-group = config.maven_group
+version = template.finalVersion
+group = template.group
 base {
-    archivesName = "${config.archive_name}-${config.mc_version}"
+    archivesName = template.archiveName
 }
 
-java.toolchain.languageVersion = JavaLanguageVersion.of(17)
+java.toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(templatePlatform.javaVersion))
+
+if (!scaffoldJavaDir.isDirectory()) {
+    throw new GradleException("Missing scaffold java directory: ${scaffoldJavaDir}")
+}
+if (!metadataTemplateDir.isDirectory()) {
+    throw new GradleException("Missing metadata scaffold directory: ${metadataTemplateDir}")
+}
+if (!mixinTemplateFile.isFile()) {
+    throw new GradleException("Missing shared mixin template: ${mixinTemplateFile}")
+}
+
+sourceSets.main.java.srcDir(scaffoldJavaDir)
+sourceSets.main.resources.srcDir('src/generated/resources')
 
 mixin {
-    add sourceSets.main, "mixins.${config.mod_id}.refmap.json"
+    add sourceSets.main, "${template.modId}.refmap.json"
+    config "${template.modId}.mixins.json"
 }
 
 println('Java: ' + System.getProperty('java.version') + ' JVM: ' + System.getProperty('java.vm.version') + '(' + System.getProperty('java.vendor') + ') Arch: ' + System.getProperty('os.arch'))
-minecraft {
-    mappings channel: 'parchment', version: '2022.08.14-1.19.2'
-    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
-    copyIdeResources = true
+
+legacyForge {
+    enable {
+        forgeVersion = templatePlatform.forgeVersionWithMc
+        disableRecompilation = true
+    }
+    validateAccessTransformers = true
+
+    parchment {
+        mappingsVersion = templatePlatform.parchmentMappings
+        minecraftVersion = templatePlatform.mcVersion
+    }
+
     runs {
+        configureEach {
+            systemProperty 'forge.logging.console.level', 'debug'
+            systemProperty templatePlatform.gameTestNamespaceProperty, template.modId
+            jvmArgument '-Dmixin.env.disableRefMap=true'
+            programArgument '--mixin'
+            programArgument "${template.modId}.mixins.json"
+            logLevel = org.slf4j.event.Level.DEBUG
+        }
+
         client {
-            workingDirectory project.file('run/client')
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', config.mod_id
-            def args = new ArrayList()
+            client()
+            gameDirectory = project.file('run/client')
 
-            args.add "--mixin"
-            args.add "mixins.${config.mod_id}.json"
-
-            args.add "-Dmixin.env.disableRefMap=true"
-
-            if (hasConfig("mc_user") && !config.mc_user.isEmpty()) {
-                def userId = config.mc_user.split(',', 2)
-                args.add "--username"
-                args.add userId[0]
-
-                args.add "--uuid"
-                if (userId.length > 1) args.add userId[1]
-                else args.add "00000000000000000000000000000001" // this is a default
-            }
-
-            setArgs(args)
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
+            if (!templateLocal.mcUser.isEmpty()) {
+                def userId = templateLocal.mcUser.split(',', 2)
+                programArgument '--username'
+                programArgument userId[0]
+                programArgument '--uuid'
+                programArgument(userId.length > 1 ? userId[1] : "00000000000000000000000000000001")
             }
         }
 
         server {
-            workingDirectory project.file('run/server')
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.disableRefMap', 'true'
-            def args = new ArrayList()
-            args.add "--mixin"
-            args.add "mixins.${config.mod_id}.json"
-            setArgs(args)
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
-            }
+            server()
+            gameDirectory = project.file('run/server')
         }
 
         gameTestServer {
-            workingDirectory project.file('run/server')
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.disableRefMap', 'true'
-            def args = new ArrayList()
-            args.add "--mixin"
-            args.add "mixins.${config.mod_id}.json"
-            setArgs(args)
-            mods {
-                "${mod_id}" {
-                    source sourceSets.main
-                }
-            }
+            type = "gameTestServer"
+            gameDirectory = project.file('run/server')
         }
 
         data {
-            workingDirectory project.file('run/data')
-            property 'forge.logging.console.level', 'debug'
-            property 'forge.enabledGameTestNamespaces', config.mod_id
-            property 'mixin.env.remapRefMap', 'true'
-            property 'mixin.env.refMapRemappingFile', "${projectDir}/build/createSrgToMcp/output.srg"
+            data()
+            gameDirectory = project.file('run/data')
+            programArguments.addAll '--mod', template.modId,
+                '--all',
+                '--output', file('src/generated/resources/').absolutePath,
+                '--existing', file('src/main/resources/').absolutePath
+        }
+    }
 
-            def args = new ArrayList()
-            args.add "--mod"
-            args.add config.mod_id
-            args.add "--all"
-            args.add "--output"
-            args.add file('src/generated/resources/').absolutePath
-            args.add "--existing"
-            args.add file('src/main/resources/').absolutePath
+    mods {
+        "${template.modId}" {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
 
-            args.add "--mixin"
-            args.add "mixins.${config.mod_id}.json"
-
-            setArgs(args)
-
-            mods {
-                "${config.mod_id}" {
-                    source sourceSets.main
+repositories {
+    def addConfiguredRepository = { Map<String, ?> repoSpec ->
+        maven {
+            name = repoSpec.name
+            url = repoSpec.url
+            if (!repoSpec.groups.isEmpty() || !repoSpec.groupRegexes.isEmpty()) {
+                content {
+                    repoSpec.groups.each { includeGroup(it) }
+                    repoSpec.groupRegexes.each { includeGroupByRegex(it) }
                 }
             }
         }
     }
-}
 
-sourceSets.main.resources { srcDir 'src/generated/resources' }
+    def renderedRepositories = (templateRepositories.custom + templateRepositories.builtin + templateRepositories.devPacks)
+        .unique { repoSpec -> repoSpec.url.toString() }
 
-repositories {
-    maven {
-        name = "Jared's maven"
-        url = "https://maven.blamejared.com/" // location of the maven that hosts JEI files since January 2023
-        content {
-            includeGroupByRegex "mezz\\.jei.*"
-        }
-    }
-    maven {
-        name = 'tterrag'
-        url = 'https://maven.tterrag.com/'
-    }
-    maven {
-        name = 'GeckoLib'
-        url 'https://dl.cloudsmith.io/public/geckolib3/geckolib/maven/'
-        content {
-            includeGroupByRegex("software\\.bernie.*")
-            includeGroup("com.eliotlash.mclib")
-        }
-    }
-    flatDir { dirs "libraries/${config.mc_version}/all" }
-    flatDir { dirs "libraries/${config.mc_version}/classpathOnly" }
-    flatDir { dirs "libraries/${config.mc_version}/runtimeOnly" }
+    renderedRepositories.each(addConfiguredRepository)
+    flatDir { dirs "libraries/${templatePlatform.mcVersion}/all" }
+    flatDir { dirs "libraries/${templatePlatform.mcVersion}/classpathOnly" }
+    flatDir { dirs "libraries/${templatePlatform.mcVersion}/runtimeOnly" }
     flatDir { dirs "libraries/embedded" }
 }
 
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+obfuscation {
+    createRemappingConfiguration(configurations.localRuntime)
+}
+
+def createConfiguredDependency = { String notation, boolean transitive ->
+    project.dependencies.create(notation) {
+        it.transitive = transitive
+    }
+}
+
+def addJarJarDependency = { String notation, String range, String preferredVersion ->
+    def dependency = project.dependencies.create(notation)
+    dependency.version {
+        strictly range
+        prefer preferredVersion
+    }
+    project.dependencies.add("jarJar", dependency)
+}
+
+def publishedPomDependencies = []
+
+def recordPublishedPomDependency = { String notation, String scope ->
+    def parts = notation.split(":", 3)
+    if (parts.length != 3 || scope == null || scope.isBlank()) {
+        return
+    }
+
+    def version = parts[2]
+    def mappedSuffix = version.indexOf("_mapped_")
+    if (mappedSuffix >= 0) {
+        version = version.substring(0, mappedSuffix)
+    }
+
+    publishedPomDependencies << [
+        groupId   : parts[0],
+        artifactId: parts[1],
+        version   : version,
+        scope     : scope
+    ]
+}
+
+def pomScopeForDependencyConfiguration = { String configuration ->
+    switch (configuration) {
+        case "api":
+            return "compile"
+        case "compileOnlyApi":
+            return "provided"
+        case "implementation":
+        case "runtimeOnly":
+            return "runtime"
+        default:
+            return null
+    }
+}
+
+def remappedConfigurationFor = { String configuration ->
+    switch (configuration) {
+        case "api":
+            return "modApi"
+        case "implementation":
+            return "modImplementation"
+        case "additionalRuntimeClasspath":
+            return "additionalRuntimeClasspath"
+        case "compileOnlyApi":
+            return "modCompileOnlyApi"
+        case "compileOnly":
+            return "modCompileOnly"
+        case "runtimeOnly":
+            return "modLocalRuntime"
+        case "testImplementation":
+            return "modTestImplementation"
+        case "testRuntimeOnly":
+            return "modTestRuntimeOnly"
+        case "jarJar":
+            return "implementation"
+        default:
+            throw new GradleException("Unsupported remapped configuration for ModDevGradle template: ${configuration}")
+    }
+}
+
 dependencies {
-    minecraft "net.minecraftforge:forge:${config.mc_version}-${config.forge_version}"
-
-    implementation fg.deobf("com.tterrag.registrate:Registrate:${config.registrate_version}")
-    jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.19,MC1.20]")
-
-
-    if (hasConfig("jei_version") && !config.jei_version.isEmpty()) {
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-common-api:${config.jei_version}")
-        compileOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge-api:${config.jei_version}")
-        runtimeOnly fg.deobf("mezz.jei:jei-${config.mc_version}-forge:${config.jei_version}")
+    if (Boolean.parseBoolean(config.enable_annotation ?: "true")) {
+        compileOnly(annotationProcessor("org.spongepowered:mixin:0.8.7:processor"))
     }
 
-    if (hasConfig("geckolib_version") && !config.geckolib_version.isEmpty()) {
-        implementation fg.deobf("software.bernie.geckolib:geckolib-neoforge-${config.mc_version}:${config.geckolib_version}")
-        implementation("com.eliotlash.mclib:mclib:20")
+    if ((config.l2_library_version ?: "").trim()) {
+        def l2LibraryNotation = "dev.xkmc.l2library:l2library:${config.l2_library_version}"
+        add(remappedConfigurationFor("implementation"), l2LibraryNotation)
+        recordPublishedPomDependency(l2LibraryNotation, "runtime")
+        addJarJarDependency(l2LibraryNotation, "[${config.l2_library_version},)", config.l2_library_version)
     }
 
+    if ((config.l2damagetracker_version ?: "").trim()) {
+        def l2DamageTrackerNotation = "dev.xkmc.l2damagetracker:l2damagetracker:${config.l2damagetracker_version}"
+        add(remappedConfigurationFor("implementation"), l2DamageTrackerNotation)
+        recordPublishedPomDependency(l2DamageTrackerNotation, "runtime")
+        addJarJarDependency(l2DamageTrackerNotation, "[${config.l2damagetracker_version},)", config.l2damagetracker_version)
+    }
 
-    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
+    if ((config.l2serial_version ?: "").trim()) {
+        def l2SerialNotation = "dev.xkmc.l2serial:l2serial:${config.l2serial_version}"
+        add(remappedConfigurationFor("implementation"), l2SerialNotation)
+        recordPublishedPomDependency(l2SerialNotation, "runtime")
+        addJarJarDependency(l2SerialNotation, "[${config.l2serial_version},)", config.l2serial_version)
+    }
 
-    def libraries = new File(file("libraries"), "${config.mc_version}")
+    if ((config.pibrary_version ?: "").trim()) {
+        def pibraryNotation = "com.mihono.pickaid:pibrary:${config.pibrary_version}"
+        add(remappedConfigurationFor("implementation"), pibraryNotation)
+        recordPublishedPomDependency(pibraryNotation, "runtime")
+        addJarJarDependency(pibraryNotation, "[${config.pibrary_version},)", config.pibrary_version)
+    }
+
+    if (!templateLocal.referenceProjects.isEmpty()) {
+        add(remappedConfigurationFor("compileOnly"), "curse.maven:forgeendertech-244844:6030567")
+        add(remappedConfigurationFor("compileOnly"), "curse.maven:advanced-hook-launchers-244849:5829843")
+    }
+
+    // Extra mod dependencies are intentionally data-driven. Most projects
+    // should be able to stay inside project.toml instead of forking build.gradle.
+    (templateBuiltinDependencies + templateFeatureDependencies + templateDependencies + templateDevPackDependencies).each { dependencySpec ->
+        if (dependencySpec.configuration == "jarJar") {
+            implementation(createConfiguredDependency(dependencySpec.notation, dependencySpec.transitive))
+        } else {
+            def targetConfiguration = dependencySpec.deobf
+                ? remappedConfigurationFor(dependencySpec.configuration)
+                : dependencySpec.configuration
+            add(targetConfiguration, createConfiguredDependency(dependencySpec.notation, dependencySpec.transitive))
+        }
+
+        if (!dependencySpec.containsKey("pack")) {
+            recordPublishedPomDependency(
+                dependencySpec.notation,
+                pomScopeForDependencyConfiguration(dependencySpec.configuration)
+            )
+        }
+
+        if (dependencySpec.range) {
+            addJarJarDependency(dependencySpec.notation, dependencySpec.range, dependencySpec.version)
+        }
+    }
+
+    def libraries = new File(file("libraries"), "${templatePlatform.mcVersion}")
     if (!libraries.isDirectory()) libraries.mkdirs()
 
-    def libDir = new File(libraries, "all");
+    def libDir = new File(libraries, "all")
     if (libDir.isDirectory()) {
         libDir.eachFile { file ->
             def splitPos = file.name.lastIndexOf("-")
             def modartifact = file.name.substring(0, splitPos)
             def modversion = file.name.substring(splitPos + 1, file.name.length() - 4)
-            dependencies {
-                implementation fg.deobf(project.dependencies.create("_all:$modartifact:$modversion") {
-                    transitive = false
-                })
-            }
+            add(remappedConfigurationFor("implementation"), project.dependencies.create("_all:$modartifact:$modversion") {
+                transitive = false
+            })
         }
-    } else libDir.mkdir();
+    } else {
+        libDir.mkdir()
+    }
 
-    libDir = new File(libraries, "classpathOnly");
+    libDir = new File(libraries, "classpathOnly")
     if (libDir.isDirectory()) {
         libDir.eachFile { file ->
             def splitPos = file.name.lastIndexOf("-")
             def modartifact = file.name.substring(0, splitPos)
             def modversion = file.name.substring(splitPos + 1, file.name.length() - 4)
-            dependencies {
-                compileOnly fg.deobf(project.dependencies.create("_classpath:$modartifact:$modversion") {
-                    transitive = false
-                })
-            }
+            add(remappedConfigurationFor("compileOnly"), project.dependencies.create("_classpath:$modartifact:$modversion") {
+                transitive = false
+            })
         }
-    } else libDir.mkdir();
+    } else {
+        libDir.mkdir()
+    }
 
-    libDir = new File(libraries, "runtimeOnly");
+    libDir = new File(libraries, "runtimeOnly")
     if (libDir.isDirectory()) {
         libDir.eachFile { file ->
             def splitPos = file.name.lastIndexOf("-")
             def modartifact = file.name.substring(0, splitPos)
             def modversion = file.name.substring(splitPos + 1, file.name.length() - 4)
-            dependencies {
-                runtimeOnly fg.deobf(project.dependencies.create("_runtime:$modartifact:$modversion") {
-                    transitive = false
-                })
-            }
+            add(remappedConfigurationFor("runtimeOnly"), project.dependencies.create("_runtime:$modartifact:$modversion") {
+                transitive = false
+            })
         }
-    } else libDir.mkdir();
+    } else {
+        libDir.mkdir()
+    }
 
-    libDir = new File(file("libraries"), "embedded");
+    libDir = new File(file("libraries"), "embedded")
     if (libDir.isDirectory()) {
         libDir.eachFile { file ->
             def splitPos = file.name.lastIndexOf("-")
@@ -248,83 +357,240 @@ dependencies {
             def modversion = file.name.substring(splitPos + 1, file.name.length() - 4)
             def modreference = "lib:$modartifact:$modversion"
 
-            dependencies {
-                implementation project.dependencies.create(modreference) {
-                    transitive = false
+            implementation project.dependencies.create(modreference) {
+                transitive = false
+            }
+        }
+    } else {
+        libDir.mkdir()
+    }
+}
+
+def replaceProperties = [
+    minecraft_version      : templatePlatform.mcVersion,
+    minecraft_version_range: templatePlatform.mcVersionRange,
+    loader_name            : templatePlatform.loader,
+    loader_version         : templatePlatform.loaderVersion,
+    loader_version_range   : templatePlatform.loaderVersionRange,
+    forge_version          : templatePlatform.forgeVersionWithMc,
+    forge_version_range    : templatePlatform.forgeVersionRange ?: templatePlatform.loaderVersionRange,
+    neo_version            : templatePlatform.loaderVersion,
+    mod_id                 : template.modId,
+    mod_name               : template.modName,
+    mod_license            : template.license,
+    mod_version            : template.finalVersion,
+    mod_authors            : templateAuthors,
+    mod_description        : template.description,
+    mod_credits            : template.credits,
+    issue_tracker_url      : template.issueTracker,
+    modrinth_project       : template.modrinthProject,
+    curios_version         : resolvedFeatureVersions.curiosVersionRange,
+    geckolib_version       : resolvedFeatureVersions.geckolibVersionRange,
+    playeranimator_version : resolvedFeatureVersions.playerAnimatorVersionRange,
+    citadel_version        : "",
+    jei_version            : resolvedFeatureVersions.jeiVersionRange
+]
+
+def generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {
+    if (!metadataTemplateDir.isDirectory()) {
+        throw new GradleException("Missing metadata template directory: ${metadataTemplateDir}")
+    }
+    inputs.properties replaceProperties
+    replaceProperties.put 'project', project
+    expand replaceProperties
+    from(metadataTemplateDir)
+    into(layout.buildDirectory.dir("generated/sources/modMetadata"))
+}
+
+def generateMixinConfig = tasks.register("generateMixinConfig", Copy) {
+    inputs.properties([
+        mod_id: template.modId
+    ])
+    from(mixinTemplateFile)
+    into(layout.buildDirectory.dir("generated/sources/mixinConfig"))
+    rename { "${template.modId}.mixins.json" }
+    filter { line ->
+        line
+            .replace("\${mod_id}", template.modId)
+    }
+}
+
+sourceSets.main.resources.srcDir(generateModMetadata)
+sourceSets.main.resources.srcDir(generateMixinConfig)
+
+legacyForge.ideSyncTask(generateModMetadata)
+legacyForge.ideSyncTask(generateMixinConfig)
+
+def prepareMixinReobfMappings = tasks.register("prepareMixinReobfMappings", Copy) {
+    dependsOn(tasks.named("createMinecraftArtifacts"))
+    onlyIf { !mixinRefmapMappings.get().asFile.exists() }
+    from(mdgNamedToIntermediate)
+    into(mixinRefmapMappings.get().asFile.parentFile)
+    rename { "${template.modId}.refmap.json.mappings.tsrg" }
+}
+
+if (!enabledDevPacks.isEmpty()) {
+    println("Enabled dev packs: ${enabledDevPacks.join(', ')}")
+}
+
+tasks.named("jar", Jar).configure {
+    dependsOn(prepareMixinReobfMappings)
+    archiveClassifier.set('')
+    archiveFileName.set("${renderedArchiveStem}.jar")
+    manifest {
+        attributes([
+            "Specification-Title"     : template.modId,
+            "Specification-Vendor"    : "Zeitheron",
+            "Specification-Version"   : "1",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : template.finalVersion,
+            "Implementation-Vendor"   : templateAuthors,
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+            "MixinConfigs"            : "${template.modId}.mixins.json"
+        ])
+    }
+}
+
+tasks.named("reobfJar").configure {
+    dependsOn(prepareMixinReobfMappings)
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
+
+tasks.withType(Javadoc).configureEach {
+    source = sourceSets.main.allJava
+    classpath = sourceSets.main.compileClasspath
+    options.encoding = 'UTF-8'
+    options.addStringOption('Xdoclint:none', '-quiet')
+    options.addBooleanOption('html5', true)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+}
+
+// Gradle module metadata records remapped dependency variants, which are not
+// suitable for downstream remapped consumption. Publish a cleaned Maven POM instead.
+tasks.withType(GenerateModuleMetadata).configureEach {
+    enabled = false
+}
+
+task srcJar(type: Jar, dependsOn: classes) {
+    from sourceSets.main.allJava
+    archiveClassifier = 'sources'
+    archiveFileName.set("${renderedArchiveStem}-sources.jar")
+}
+
+task javadocJar(type: Jar, dependsOn: javadoc) {
+    from javadoc.destinationDir
+    archiveClassifier = 'javadoc'
+    archiveFileName.set("${renderedArchiveStem}-javadoc.jar")
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+            artifact(tasks.named("srcJar"))
+            artifact(tasks.named("javadocJar"))
+            artifactId = template.modId
+
+            // Downstream mod projects should consume the published development
+            // jar as a normal dependency. The POM therefore strips mapped and
+            // internal artifacts while keeping consumable coordinates.
+            pom.withXml {
+                def root = asNode()
+                def dependenciesNode = root.dependencies ? root.dependencies[0] : root.appendNode('dependencies')
+                def publishedDependencies = publishedPomDependencies
+                    .findAll { dependencySpec ->
+                        dependencySpec.groupId != "_all" &&
+                            !(dependencySpec.groupId == "net.minecraftforge" && dependencySpec.artifactId == "forge")
+                    }
+                    .unique { dependencySpec ->
+                        "${dependencySpec.groupId}:${dependencySpec.artifactId}:${dependencySpec.scope}"
+                    }
+                    .sort { left, right ->
+                        "${left.groupId}:${left.artifactId}:${left.scope}" <=> "${right.groupId}:${right.artifactId}:${right.scope}"
+                    }
+
+                dependenciesNode.children().clear()
+                publishedDependencies.each { dependencySpec ->
+                    def dependencyNode = dependenciesNode.appendNode('dependency')
+                    dependencyNode.appendNode('groupId', dependencySpec.groupId)
+                    dependencyNode.appendNode('artifactId', dependencySpec.artifactId)
+                    dependencyNode.appendNode('version', dependencySpec.version)
+                    if (dependencySpec.scope) {
+                        dependencyNode.appendNode('scope', dependencySpec.scope)
+                    }
                 }
             }
         }
-    } else libDir.mkdir();
-}
+    }
+    repositories {
+        maven {
+            url = System.env.MAVEN_URL != null ? System.env.MAVEN_URL : template.mavenUrl
 
-def resourceTargets = ['META-INF/mods.toml', 'pack.mcmeta']
-def replaceProperties = [
-        minecraft_version: config.mc_version, minecraft_version_range: config.mc_range,
-        forge_version    : "${config.mc_version}-${config.forge_version}", forge_version_range: config.forge_range,
-        mod_id           : config.mod_id, mod_name: config.mod_name, mod_license: config.mod_license, mod_version: config.mod_version,
-        mod_authors      : config.mod_authors, mod_description: config.mod_description,
-        modrinth_project: config.modrinth_project,
-        issue_tracker_url: config.issue_tracker_url, mod_credits: config.mod_credits
-]
-processResources {
-    inputs.properties replaceProperties
-    replaceProperties.put 'project', project
+            // CI and local shells can override credentials with environment
+            // variables, while project.toml keeps the repository address.
+            def mavenUser = System.env.MAVEN_USER != null ? System.env.MAVEN_USER : template.mavenUser
+            def mavenPassword = System.env.MAVEN_PASSWORD != null ? System.env.MAVEN_PASSWORD : template.mavenPassword
 
-    filesMatching(resourceTargets) {
-        expand replaceProperties
+            if (mavenUser != null && !mavenUser.isEmpty()) {
+                credentials {
+                    username = mavenUser
+                    password = mavenPassword
+                }
+            }
+        }
     }
 }
 
-jar {
-    manifest {
-        attributes([
-                "Specification-Title"     : config.mod_id,
-                "Specification-Vendor"    : "M1hono",
-                "Specification-Version"   : "1",
-                "Implementation-Title"    : project.name,
-                "Implementation-Version"  : archiveVersion,
-                "Implementation-Vendor"   : config.mod_authors,
-                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                "MixinConfigs"            : "mixins.${config.mod_id}.json"
-        ])
+def localMavenRepository = System.getProperty("maven.repo.local") ?: "${System.getProperty("user.home")}/.m2/repository"
+def localPublicationDirectory = file("${localMavenRepository}/${template.group.replace('.', '/')}/${template.modId}/${template.finalVersion}")
+def localPublicationModuleMetadata = file("${localPublicationDirectory}/${template.modId}-${template.finalVersion}.module")
+
+// Gradle module metadata leaks remapped coordinates. We delete any stale copy
+// so the cleaned POM remains the only local publication metadata surface.
+tasks.named("publishMavenJavaPublicationToMavenLocal").configure {
+    doFirst {
+        delete(localPublicationModuleMetadata)
     }
-    archiveClassifier.set('slim')
 }
 
 task deobfJar(type: Jar) {
     archiveClassifier = 'deobf'
     from sourceSets.main.output
     manifest {
-        attributes(["Specification-Title"     : config.mod_id,
-                    "Specification-Vendor"    : "Zeitheron",
-                    "Specification-Version"   : "1",
-                    "Implementation-Title"    : project.name,
-                    "Implementation-Version"  : archiveVersion,
-                    "Implementation-Vendor"   : config.mod_authors,
-                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-                    "MixinConfigs"            : "mixins.${config.mod_id}.json"
+        attributes([
+            "Specification-Title"     : template.modId,
+            "Specification-Vendor"    : "Zeitheron",
+            "Specification-Version"   : "1",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : template.finalVersion,
+            "Implementation-Vendor"   : templateAuthors,
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+            "MixinConfigs"            : "${template.modId}.mixins.json"
         ])
     }
-}
-
-task srcJar(type: Jar, dependsOn: classes) {
-    from sourceSets.main.allJava
-    archiveClassifier = 'sources'
 }
 
 artifacts {
     archives deobfJar
     archives srcJar
+    archives javadocJar
 }
 
 modrinth {
-    token = System.env.MODRINTH_TOKEN != null ? System.env.MODRINTH_TOKEN : "NONE"
-    projectId = config.modrinth_project
-    versionNumber = config.mod_version
-    versionType = config.release_type
-    uploadFile = jar
-    gameVersions = [config.mc_version]
-    loaders = ['Forge', 'NeoForge']
+    token = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: "NONE"
+    projectId = template.modrinthProject
+    versionNumber = template.finalVersion
+    versionType = template.releaseType
+    // Platform uploads always ship the reobfuscated runtime jar.
+    uploadFile = runtimeDistributionJar.get().asFile
+    gameVersions = [templatePlatform.mcVersion]
+    loaders = [templatePlatform.publishLoader]
     dependencies {
         def mods = config.required_mods.split(";")
         if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
@@ -381,17 +647,16 @@ modrinth {
 }
 
 curseforge {
-    apiKey = System.env.CURSEFORGE_TOKEN != null ? System.env.CURSEFORGE_TOKEN : "NONE"
+    apiKey = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: "NONE"
     project {
-        id = config.cf_project
+        id = "${template.curseforgeProject}"
         changelogType = 'html'
         changelog = ""
-        releaseType = config.release_type
-        addGameVersion config.mc_version
-        addGameVersion "Forge"
-        addGameVersion "NeoForge"
-        mainArtifact(jar) {
-            displayName = "[${config.mc_version}] ${config.mod_name} - ${config.mod_version}"
+        releaseType = template.releaseType
+        addGameVersion templatePlatform.mcVersion
+        addGameVersion templatePlatform.publishLoader
+        mainArtifact(runtimeDistributionJar.get().asFile) {
+            displayName = "[${templatePlatform.mcVersion}] ${template.modName} - ${template.finalVersion}"
         }
 
         def reqDeps = new ArrayList()
@@ -470,80 +735,96 @@ curseforge {
     }
 }
 
-import net.minecraftforge.gradle.common.tasks.SignJar
-
-task signJar(type: SignJar, dependsOn: jar) {
+def signRuntimeJar = tasks.register("signRuntimeJar") {
+    dependsOn(tasks.named("reobfJar"))
     onlyIf {
         System.env.MC_KS_PASS != null
     }
-    keyStore = System.env.MC_KS_PATH
-    alias = System.env.MC_KS_ALIAS
-    storePass = System.env.MC_KS_PASS
-    keyPass = System.env.MC_KS_PASS
-    inputFile = jar.archiveFile
-    outputFile = jar.archiveFile
+
+    inputs.file(runtimeDistributionJar)
+    outputs.file(runtimeDistributionJar)
+
+    doLast {
+        ant.signjar(
+            jar: runtimeDistributionJar.get().asFile,
+            alias: System.env.MC_KS_ALIAS,
+            keystore: System.env.MC_KS_PATH,
+            storepass: System.env.MC_KS_PASS,
+            keypass: System.env.MC_KS_PASS,
+            preservelastmodified: "true"
+        )
+    }
 }
 
-def reobfFile = jar.archiveFile.get().asFile
-def reobfArtifact = artifacts.add('default', reobfFile) {
-    type 'jar'
-    builtBy 'signJar'
+build.dependsOn(signRuntimeJar)
+
+def validateUploadConfiguration = tasks.register('validateUploadConfiguration') {
+    group = "upload"
+
+    doLast {
+        if (!hasModrinthTarget && !hasCurseforgeTarget) {
+            throw new GradleException("At least one upload platform must be configured")
+        }
+
+        if (!(template.releaseType in ["alpha", "beta", "release"])) {
+            throw new GradleException("release_type must be one of alpha, beta, release")
+        }
+
+        def modrinthToken = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: ""
+        if (hasModrinthTarget && !modrinthToken.trim()) {
+            throw new GradleException("MODRINTH_TOKEN or publish.modrinth_token is required when modrinth_project is configured")
+        }
+
+        def curseforgeToken = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
+        if (hasCurseforgeTarget && !curseforgeToken.trim()) {
+            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge_token is required when curseforge_project is configured")
+        }
+    }
 }
 
-jar.finalizedBy('reobfJar')
-publish.dependsOn('reobfJar')
+if (hasModrinthTarget) {
+    tasks.named("modrinth").configure {
+        dependsOn(validateUploadConfiguration)
+        dependsOn(signRuntimeJar)
+    }
+}
 
-build.dependsOn signJar
+if (hasCurseforgeTarget) {
+    tasks.matching { it.name == curseforgeUploadTaskName }.configureEach {
+        dependsOn(validateUploadConfiguration)
+        dependsOn(signRuntimeJar)
+    }
+}
 
 tasks.register('buildAndUploadMod') {
     group = "upload"
-    dependsOn "curseforge${config.cf_project}", 'modrinth'
 
-    doLast {
-        println "Upload complete."
+    dependsOn validateUploadConfiguration
+    dependsOn signRuntimeJar
+
+    if (hasModrinthTarget) {
+        dependsOn 'modrinth'
+    }
+    if (hasCurseforgeTarget) {
+        dependsOn curseforgeUploadTaskName
     }
 }
 
 afterEvaluate {
-    if (!config.maven_url.isEmpty()) {
-        tasks["curseforge${config.cf_project}"].dependsOn.add(publish)
+    if (!template.mavenUrl.isBlank() && hasModrinthTarget) {
         tasks["modrinth"].dependsOn.add(publish)
     }
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            groupId = config.maven_group
-            artifactId = config.archive_name + "-" + config.mc_version
-
-            artifact reobfArtifact
-            artifact srcJar
-            artifact deobfJar
-
-            pom.withXml {
-                def dependenciesNode = asNode().appendNode('dependencies')
-
-            }
-        }
+    if (!template.mavenUrl.isBlank() && hasCurseforgeTarget) {
+        tasks[curseforgeUploadTaskName].dependsOn.add(publish)
     }
-    repositories {
-        maven {
-            url config.maven_url
-        }
-    }
-}
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
 }
 
 import java.nio.file.Files
 
 def incrementBuild = {
-    if (!hasConfig("build_candidate") || !Boolean.parseBoolean(config.build_candidate)) {
-        def buildTxt = configFile.toPath()
-        List<String> lines = Files.readAllLines buildTxt
+    if (templateLocal.formalVersion) {
+        def configPath = configFile.toPath()
+        List<String> lines = Files.readAllLines(configPath)
         lines.replaceAll { String ln ->
             if (ln.startsWith("mod_version")) {
                 def version = ln.split("=")[1]
@@ -552,10 +833,18 @@ def incrementBuild = {
                 def lastOne = Integer.parseInt(version.substring(dot)) + 1
                 return "mod_version=" + newVersion + lastOne
             }
+            def matcher = (ln =~ /^(\\s*version\\s*=\\s*")([^"]+)(".*)$/)
+            if (matcher.matches()) {
+                def version = matcher[0][2]
+                def dot = version.lastIndexOf('.') + 1
+                def newVersion = version.substring(0, dot)
+                def lastOne = Integer.parseInt(version.substring(dot)) + 1
+                return matcher[0][1] + newVersion + lastOne + matcher[0][3]
+            }
             return ln
         }
-        Files.write buildTxt, lines, java.nio.file.StandardOpenOption.CREATE
-    } else println "Build candidate enabled, we are not increasing build number after this."
+        Files.write(configPath, lines, java.nio.file.StandardOpenOption.CREATE)
+    }
 }
 
 tasks.register("incrementBuildVersionProperty") {
@@ -563,13 +852,4 @@ tasks.register("incrementBuildVersionProperty") {
     doLast incrementBuild
 }
 
-tasks.jarJar.finalizedBy('reobfJarJar')
-
-tasks.withType(JavaCompile).configureEach {
-    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
-}
-
-tasks.jarJar.configure {
-    // remove '-all' from jarJar jar file
-    archiveClassifier.set('')
-}
+tasks.build.dependsOn tasks.incrementBuildVersionProperty
