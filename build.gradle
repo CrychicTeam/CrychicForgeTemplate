@@ -30,6 +30,8 @@ def templateFeatureDependencies = project.ext.templateFeatureDependencies
 def templateDependencies = project.ext.templateDependencies
 def templateDevPackDependencies = project.ext.templateDevPackDependencies
 def templateEmbeddedProjects = project.ext.templateEmbeddedProjects
+def templateMetadata = project.ext.templateMetadata
+def templateModRelations = project.ext.templateModRelations
 def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
 def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
@@ -411,6 +413,89 @@ def remappedConfigurationFor = { String configuration ->
     }
 }
 
+def tomlEscape = { String value ->
+    (value ?: "")
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+}
+
+def renderTomlStringLine = { String key, String value ->
+    value == null || value.isBlank() ? null : "${key}=\"${tomlEscape(value)}\""
+}
+
+def renderNeoForgeFileMetadataLines = {
+    def lines = []
+    def issueTrackerLine = renderTomlStringLine("issueTrackerURL", template.issueTracker)
+    if (issueTrackerLine != null) {
+        lines << issueTrackerLine
+    }
+    if (templateMetadata.showAsResourcePack) {
+        lines << "showAsResourcePack=true"
+    }
+    if (templateMetadata.showAsDataPack) {
+        lines << "showAsDataPack=true"
+    }
+    lines.join("\n")
+}
+
+def renderNeoForgeModMetadataLines = {
+    def lines = []
+    def logoFileLine = renderTomlStringLine("logoFile", templateMetadata.logoFile)
+    if (logoFileLine != null) {
+        lines << logoFileLine
+    }
+    lines << "logoBlur=${templateMetadata.logoBlur.toString()}"
+
+    def updateJsonLine = renderTomlStringLine("updateJSONURL", templateMetadata.updateJsonUrl)
+    if (updateJsonLine != null) {
+        lines << updateJsonLine
+    }
+
+    def displayUrlLine = renderTomlStringLine("displayURL", templateMetadata.displayUrl)
+    if (displayUrlLine != null) {
+        lines << displayUrlLine
+    }
+
+    def displayTestLine = renderTomlStringLine("displayTest", templateMetadata.displayTest)
+    if (displayTestLine != null) {
+        lines << displayTestLine
+    }
+
+    lines.join("\n")
+}
+
+def renderNeoForgeDependencyBlocks = {
+    templateModRelations
+        .findAll { it.bucket in ["required", "optional", "incompatible", "discouraged"] }
+        .collect { relation ->
+            def lines = [
+                "[[dependencies.${template.modId}]]",
+                "modId=\"${tomlEscape(relation.modId as String)}\"",
+                "type=\"${tomlEscape(relation.bucket as String)}\"",
+                "versionRange=\"${tomlEscape(relation.versionRange as String)}\"",
+                "ordering=\"${tomlEscape(relation.ordering as String)}\"",
+                "side=\"${tomlEscape(relation.side as String)}\""
+            ]
+
+            def reasonLine = renderTomlStringLine("reason", relation.reason as String)
+            if (reasonLine != null) {
+                lines << reasonLine
+            }
+
+            def referralUrlLine = renderTomlStringLine("referralUrl", relation.referralUrl as String)
+            if (referralUrlLine != null) {
+                lines << referralUrlLine
+            }
+
+            lines.join("\n")
+        }
+        .join("\n\n")
+}
+
+def renderNeoForgeAccessTransformerBlock = {
+    accessTransformerFile.isFile() ? '[[accessTransformers]]\nfile="META-INF/accesstransformer.cfg"' : ""
+}
+
 dependencies {
     if (Boolean.parseBoolean(config.enable_annotation ?: "true")) {
         compileOnly(annotationProcessor("org.spongepowered:mixin:0.8.7:processor"))
@@ -546,7 +631,11 @@ def replaceProperties = [
     mod_version            : template.finalVersion,
     mod_authors            : templateAuthors,
     mod_description        : template.description,
-    mod_credits            : template.credits
+    mod_credits            : template.credits,
+    file_metadata_lines    : renderNeoForgeFileMetadataLines(),
+    mod_metadata_lines     : renderNeoForgeModMetadataLines(),
+    mod_relation_blocks    : renderNeoForgeDependencyBlocks(),
+    access_transformer_block: renderNeoForgeAccessTransformerBlock()
 ]
 
 def generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

@@ -1,153 +1,432 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# Minecraft NeoForge 1.21.1 Mod Template
+# PickAIDForgeTemplate — NeoForge 1.21.1 Mod Template
 
 English | [中文版](README.MD)
 
-This branch has one job: give you a clean `NeoForge 1.21.1` starting point.
+`PickAIDForgeTemplate-1.21.1` is the `NeoForge 1.21.1` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
 
-If you need another Minecraft version, switch to the matching branch. Do not try to select versions inside `project.toml`, and do not pass `-PtemplateProfile=...`.
+## Contents
 
-The rules on this branch are straightforward:
+- [What You Get](#what-you-get)
+- [Prerequisites](#prerequisites)
+- [Quick Start](#quick-start)
+- [Configuration Reference](#configuration-reference)
+  - [[mod] — mod identity](#mod--mod-identity)
+  - [[features] — ecosystem feature switches](#features--ecosystem-feature-switches)
+  - [[overrides] — version overrides](#overrides--version-overrides)
+  - [[dev_packs] — local helper packs](#dev_packs--local-helper-packs)
+  - [[repositories] — extra Maven repositories](#repositories--extra-maven-repositories)
+  - [[dependencies.*] / [embedded_projects.*] — extra dependencies and embedded subprojects](#dependencies--embedded_projects--extra-dependencies-and-embedded-subprojects)
+  - [[metadata] — mod display metadata](#metadata--mod-display-metadata)
+  - [[mod_relations.*] — mod relation declarations](#mod_relations--mod-relation-declarations)
+  - [[publish] — publishing settings](#publish--publishing-settings)
+  - [[naming] — artifact naming](#naming--artifact-naming)
+- [Project Layout](#project-layout)
+- [Publishing Guide](#publishing-guide)
+- [Artifacts](#artifacts)
+- [How Downstream Mods Depend On It](#how-downstream-mods-depend-on-it)
+- [Gradle Mirrors](#gradle-mirrors)
+- [Common Commands](#common-commands)
+- [FAQ](#faq)
 
-- keep the main project config in `project.toml`
-- use official `ModDevGradle`
-- stop carrying old `build.txt` flows
-- keep publishing, dependency setup, and Mixin config data-driven
+## What You Get
 
-## Fastest Start
+Out of the box this branch already includes:
 
-### 1. Edit `project.toml`
+- A buildable `NeoForge 1.21.1` project skeleton
+- TOML-driven project configuration through `project.toml`
+- Built-in feature switches for JEI, Curios, GeckoLib, Player Animator, and MixinExtras
+- A deliberately small set of local helper packs, currently centered on `curios`
+- Maven publication for the main jar, `sources`, and `javadoc`
+- Modrinth and CurseForge upload tasks
+- TOML-based repository and dependency management for most project needs
 
-These are usually the first values you change:
+> This branch does not use `build.txt`, `template.toml`, `[platform]`, or `-PtemplateProfile=...`.
+
+## Prerequisites
+
+- **JDK 21** or whatever Java version this branch requires
+- A usable Gradle environment through the included wrapper
+- Basic Minecraft modding context such as `mod_id`, Mixins, `neoforge.mods.toml`, and Maven dependencies
+
+## Quick Start
+
+### 1. Clone the template
+
+```bash
+git clone <repository-url>
+cd PickAIDForgeTemplate-1.21.1
+```
+
+### 2. Edit `project.toml`
+
+For a new project, start with these blocks:
 
 ```toml
-schema_version = 1
-template_version = "1.21.1-template-1.0.0"
-
 [mod]
 mod_id = "yourmod"
 mod_name = "Your Mod"
 version = "1.0.0"
-version_suffix = ""
 group = "com.yourname.yourmod"
 authors = ["Your Name"]
 license = "MIT"
 description = "What this mod does."
+
+[naming]
+archive_name = "yourmod"
+jar_format = "{archive_name}-{mc_version}-{version}"
 ```
 
-### 2. Replace the sample files
+If you need a preview build or hotfix build:
 
-Start with these:
+```toml
+version = "1.2.0"
+version_suffix = "hotfix.1"
+```
+
+That renders the final version as `1.2.0-hotfix.1`.
+
+### 3. Replace the placeholders
+
+The first files you usually touch are:
 
 1. `src/main/java/org/pickaid/example/Example.java`
 2. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
 3. `src/scaffolds/modern-neoforge/templates/META-INF/neoforge.mods.toml`
 4. `src/templates/mixins.json`
 
-If you do not use Mixin, delete the sample mixin and the shared mixin template together.
+If your mod does not use Mixins, remove the sample mixin and `src/templates/mixins.json`.
 
-### 3. Import the Gradle project and build once
+### 4. Import Gradle and build once
 
 ```bash
 ./gradlew help
 ./gradlew build
 ```
 
-This is a `ModDevGradle` branch, so the old `genIntellijRuns` pattern is no longer the right workflow. Import the Gradle project and let your IDE sync.
+This branch is on `ModDevGradle`, so the old `genIntellijRuns` flow is no longer the right workflow. Import the Gradle project and let the IDE sync.
+
+### 5. Optional: create `project.local.toml`
+
+Copy the example file for machine-local settings:
+
+```bash
+cp project.local.toml.example project.local.toml
+```
+
+Typical local-only values:
+
+- `[run].mc_user`
+- `[publish].maven_user` / `maven_password`
+- `[publish].modrinth_token` / `curseforge_token`
+
+## Configuration Reference
+
+### `[mod]` — mod identity
+
+This is the first block every project changes.
+
+| Key | Meaning |
+|---|---|
+| `mod_id` | NeoForge mod id |
+| `mod_name` | player-facing display name |
+| `version` | base version |
+| `version_suffix` | optional version suffix |
+| `group` | Maven group |
+| `authors` | non-empty author list |
+| `license` | license identifier |
+| `description` | mod description |
+| `credits` | optional credits |
+| `issue_tracker_url` | optional issue tracker URL |
+
+### `[features]` — ecosystem feature switches
+
+Built-in feature switches:
+
+- `jei`
+- `curios`
+- `geckolib`
+- `player_animator`
+- `mixin_extras`
+
+Keep unused ones set to `false`.
+
+### `[overrides]` — version overrides
+
+Use this only when a feature is enabled but you need a different version than the template default.
+
+Supported keys:
+
+- `jei_version`
+- `curios_version`
+- `geckolib_version`
+- `player_animator_version`
+- `bendylib_version`
+- `mixin_extras_version`
+
+### `[dev_packs]` — local helper packs
+
+This branch keeps the dev-pack surface intentionally small.
+
+Currently supported:
+
+- `curios`
+
+It only affects the local runtime environment. It does not define your published API surface.
+
+### `[repositories]` — extra Maven repositories
+
+Common ecosystem repositories are already included. Only add entries here when a dependency lives outside the built-in set:
+
+```toml
+[repositories]
+custom_repo = "https://maven.example.com/releases"
+```
+
+Inline-table form is also supported:
+
+```toml
+[repositories]
+custom_repo = { url = "https://maven.example.com/releases", name = "Example", groups = ["com.example"] }
+```
+
+### `[dependencies.*]` / `[embedded_projects.*]` — extra dependencies and embedded subprojects
+
+Most extra dependencies should be declared here rather than by editing `build.gradle`.
+
+Common buckets:
+
+- `api`
+- `implementation`
+- `compile_only_api`
+- `compile_only`
+- `runtime_only`
+- `annotation_processor`
+- `test_implementation`
+- `test_runtime_only`
+- `deobf_api`
+- `deobf_implementation`
+- `deobf_compile_only_api`
+- `deobf_compile_only`
+- `deobf_runtime_only`
+- `deobf_test_implementation`
+- `deobf_test_runtime_only`
+- `jarjar`
+
+Gradle subprojects belong under:
+
+- `[embedded_projects.api]`
+- `[embedded_projects.implementation]`
+
+The practical distinction is:
+
+- `jarjar` decides whether an external dependency is bundled into the final jar
+- `embedded_projects.*` decides whether a Gradle subproject is bundled into the main mod
+- `api` / `compile_only_api` decide whether downstream builds can compile against it
+
+### `[metadata]` — mod display metadata
+
+This block feeds `neoforge.mods.toml`.
+
+The fields currently exposed by the template are:
+
+- `logo_file`
+- `logo_blur`
+- `show_as_resource_pack`
+- `show_as_data_pack`
+- `update_json_url`
+- `display_url`
+- `display_test`
+
+### `[mod_relations.*]` — mod relation declarations
+
+This branch can express these relation types directly:
+
+- `required`
+- `optional`
+- `incompatible`
+- `discouraged`
+- `embedded`
+
+String shorthand means "version range only":
+
+```toml
+[mod_relations.required]
+curios = "[9.5.1,)"
+```
+
+The fuller form can also include:
+
+- `mod_id`
+- `version_range`
+- `ordering`
+- `side`
+- `reason`
+- `referral_url`
+- `modrinth`
+- `curseforge`
+
+Example:
+
+```toml
+[mod_relations.optional]
+jade = { version_range = "*", modrinth = "nvQzSEkH", curseforge = "324717" }
+
+[mod_relations.incompatible]
+old_renderer = { version_range = "*", reason = "Hooks the same render pipeline" }
+```
+
+### `[publish]` — publishing settings
+
+This block controls:
+
+- `maven_url`
+- `curseforge_project`
+- `modrinth_project`
+- `release_type`
+
+Sensitive values should usually live in environment variables or `project.local.toml`.
+
+Common environment variables:
+
+- `MAVEN_URL`
+- `MAVEN_USER`
+- `MAVEN_PASSWORD`
+- `MODRINTH_TOKEN`
+- `CURSEFORGE_TOKEN`
+
+### `[naming]` — artifact naming
+
+This controls the final jar name.
+
+Supported tokens:
+
+- `{archive_name}`
+- `{mod_id}`
+- `{version}`
+- `{mc_version}`
+- `{loader}`
+
+Default form:
+
+```toml
+jar_format = "{archive_name}-{mc_version}-{version}"
+```
+
+## Project Layout
+
+### `project.toml`
+
+Main project configuration for mod identity, dependencies, publishing, and naming.
+
+### `project.local.toml`
+
+Machine-local settings that should not go into git.
+
+### `src/main/java`
+
+Primary source directory. The sample entrypoint and sample mixin live here.
+
+### `src/scaffolds/modern-neoforge/templates`
+
+The source template for `neoforge.mods.toml`. You only need to touch it when you want to change generated metadata structure.
+
+### `src/templates/mixins.json`
+
+The shared Mixin config template.
+
+## Publishing Guide
+
+### Publish to local Maven
+
+```bash
+./gradlew publishToMavenLocal
+```
+
+### Publish to remote Maven
+
+```bash
+./gradlew publish
+```
+
+That requires `publish.maven_url` or `MAVEN_URL`, plus credentials when the repository needs them.
+
+### Upload to Modrinth / CurseForge
+
+```bash
+./gradlew buildAndUploadMod
+```
+
+That assumes:
+
+- the corresponding project ids are already set in `project.toml`
+- the matching tokens are available through environment variables or `project.local.toml`
+
+## Artifacts
+
+The main Maven publication surface on this branch is:
+
+- the main jar
+- the `sources` jar
+- the `javadoc` jar
+
+A `deobf` helper jar is also built for development-oriented use.
+
+Platform uploads use the main jar.
+
+## How Downstream Mods Depend On It
+
+A normal downstream consumer usually writes:
+
+```gradle
+repositories {
+    maven { url = "https://your-maven.example/releases" }
+}
+
+dependencies {
+    implementation "com.yourname.yourmod:yourmod:1.0.0"
+}
+```
+
+If your own source code directly imports APIs from libraries that the mod also exposes, such as JEI or Curios, you still need to declare those APIs in your own build.
+
+## Gradle Mirrors
+
+The repository should keep the official Gradle Wrapper URL.
+
+If downloads are slow on your machine, switch to a mirror locally and switch back before committing.
 
 ## Common Commands
 
 ```bash
+./gradlew build
 ./gradlew runClient
 ./gradlew runServer
 ./gradlew runData
 ./gradlew publishToMavenLocal
+./gradlew publish
+./gradlew buildAndUploadMod
 ```
 
-## Using `jarjar` without fighting the build
+## FAQ
 
-The short version is:
+### Why does this branch not use `genIntellijRuns`?
 
-- `jarjar` decides whether something is bundled into your final jar
-- `api` / `compile_only_api` decide whether downstream consumers can compile against it
-- `[embedded_projects.*]` decide whether Gradle subprojects get bundled into the main mod
+Because it already uses the official `ModDevGradle` flow. Import the Gradle project and sync it in the IDE.
 
-The three common cases are:
+### What is the difference between `embedded_projects.*` and `mod_relations.embedded`?
 
-1. Bundle an external helper library and keep it internal:
+They are different things:
+
+- `embedded_projects.*` means bundling Gradle subprojects into the main mod
+- `mod_relations.embedded` means declaring an embedded-library relation for Modrinth / CurseForge
+
+### How do I express a required version range for another mod?
+
+Use `version_range` inside `mod_relations.*`:
 
 ```toml
-[dependencies.jarjar]
-helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
+[mod_relations.required]
+curios = "[9.5.1,10.0.0)"
 ```
-
-2. Bundle an external library and also let downstream consumers compile against it:
-
-```toml
-[dependencies.compile_only_api]
-helper_api = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
-```
-
-That `range` entry tells the template to feed the same dependency into `jarjar`.
-If your own project should use it at runtime too, use `api` or `implementation` with the same `range` pattern.
-
-3. Bundle Gradle subprojects into the main mod:
-
-```toml
-[embedded_projects.api]
-core = ":core"
-# core = { path = ":core", configuration = "namedElements" }
-
-[embedded_projects.implementation]
-internal = ":internal"
-```
-
-- `[embedded_projects.api]`: bundle the subproject and let downstream builds compile against it through the main published artifact.
-- `[embedded_projects.implementation]`: bundle the subproject but keep it internal to the main mod.
-
-## Files You Will Touch Often
-
-### `project.toml`
-
-This is the main configuration surface. It holds:
-
-- mod identity
-- feature switches
-- the small set of branch-curated dev packs
-- extra repositories
-- extra dependencies
-- publishing settings
-- output naming
-
-### `project.local.toml`
-
-This stays out of git and is meant for machine-local settings such as:
-
-- `mc_user`
-- temporary Maven credentials
-- Modrinth / CurseForge tokens
-
-Start from [`project.local.toml.example`](project.local.toml.example).
-
-### `src/main/java`
-
-Standard Java source root. The sample mod entrypoint and sample mixin both live here.
-
-### `src/scaffolds/modern-neoforge/templates`
-
-This is the `neoforge.mods.toml` template used by the build. Touch it only when you need to change the generated mod metadata structure.
-
-### `src/templates/mixins.json`
-
-This is the shared Mixin config template. Change it only if you actually use Mixins; otherwise remove the sample together with the sample mixin class.
-
-## Scope of This Branch
-
-This branch is simply `NeoForge 1.21.1 + ModDevGradle`. It is not trying to carry the old template compatibility layers anymore.
-
-- no `[platform]`
-- no `-PtemplateProfile=...`
-- no `build.txt`
-
-If you need another Minecraft version, move to the matching version branch.
