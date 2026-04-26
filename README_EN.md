@@ -237,7 +237,7 @@ The fields currently exposed by the template are:
 - `show_as_data_pack`
 - `update_json_url`
 - `display_url`
-- `display_test`
+- `display_test` (`MATCH_VERSION`, `IGNORE_SERVER_VERSION`, `IGNORE_ALL_VERSION`, or `NONE`)
 
 ### `[mod_relations.*]` — mod relation declarations
 
@@ -255,6 +255,8 @@ String shorthand means "version range only":
 [mod_relations.required]
 curios = "[9.5.1,)"
 ```
+
+On this branch, every relation except `embedded` must define `version_range`. When you use the inline-table form, `ordering` must be `NONE`, `BEFORE`, or `AFTER`, and `side` must be `BOTH`, `CLIENT`, or `SERVER`.
 
 The fuller form can also include:
 
@@ -276,6 +278,8 @@ jade = { version_range = "*", modrinth = "nvQzSEkH", curseforge = "324717" }
 [mod_relations.incompatible]
 old_renderer = { version_range = "*", reason = "Hooks the same render pipeline" }
 ```
+
+`embedded` is upload-platform metadata only, so it must define at least one `modrinth` or `curseforge` project id.
 
 ### `[publish]` — publishing settings
 

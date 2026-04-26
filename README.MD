@@ -237,7 +237,7 @@ Gradle 子项目不放在 `[dependencies.*]`，而是放在：
 - `show_as_data_pack`
 - `update_json_url`
 - `display_url`
-- `display_test`
+- `display_test`，允许 `MATCH_VERSION`、`IGNORE_SERVER_VERSION`、`IGNORE_ALL_VERSION`、`NONE`
 
 ### `[mod_relations.*]` — 模组关系声明
 
@@ -255,6 +255,8 @@ Gradle 子项目不放在 `[dependencies.*]`，而是放在：
 [mod_relations.required]
 curios = "[9.5.1,)"
 ```
+
+除了 `embedded` 以外，这条分支上的关系都必须提供 `version_range`。如果使用 inline table，`ordering` 只能是 `NONE`、`BEFORE`、`AFTER`，`side` 只能是 `BOTH`、`CLIENT`、`SERVER`。
 
 完整写法可以继续带这些字段：
 
@@ -276,6 +278,8 @@ jade = { version_range = "*", modrinth = "nvQzSEkH", curseforge = "324717" }
 [mod_relations.incompatible]
 old_renderer = { version_range = "*", reason = "Hooks the same render pipeline" }
 ```
+
+`embedded` 不写入 `neoforge.mods.toml`，只用于上传平台关系，所以至少要填一个 `modrinth` 或 `curseforge` 项目 ID。
 
 ### `[publish]` — 发布配置
 

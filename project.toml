@@ -104,10 +104,14 @@ jitpack = "https://jitpack.io"
 # show_as_data_pack = false
 # update_json_url = ""
 # display_url = ""
+# Allowed: MATCH_VERSION, IGNORE_SERVER_VERSION, IGNORE_ALL_VERSION, NONE
 # display_test = "MATCH_VERSION"
 
 # NeoForge 1.21.1 supports required / optional / incompatible / discouraged
 # dependency types directly in neoforge.mods.toml.
+# required / optional / incompatible / discouraged must define version_range.
+# ordering: NONE, BEFORE, AFTER
+# side: BOTH, CLIENT, SERVER
 # String shorthand means version_range only:
 # [mod_relations.required]
 # curios = "[9.5.1,)"
@@ -122,6 +126,7 @@ jitpack = "https://jitpack.io"
 # [mod_relations.discouraged]
 # example_old_addon = { version_range = "*", reason = "This branch replaces it" }
 #
+# embedded must define at least one upload-platform project id.
 # [mod_relations.embedded]
 # geckolib = { modrinth = "8BmcQJ2H", curseforge = "388172" }
 

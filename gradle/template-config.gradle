@@ -199,6 +199,9 @@ def allowedDependencyBuckets = [
 ] as Map<String, Map<String, Object>>
 def allowedEmbeddedProjectBuckets = ["api", "implementation"] as Set
 def allowedRelationBuckets = ["required", "optional", "incompatible", "discouraged", "embedded"] as Set
+def allowedDisplayTests = ["MATCH_VERSION", "IGNORE_SERVER_VERSION", "IGNORE_ALL_VERSION", "NONE"] as Set
+def allowedRelationOrderings = ["NONE", "BEFORE", "AFTER"] as Set
+def allowedRelationSides = ["BOTH", "CLIENT", "SERVER"] as Set
 
 def localFirstString = { String key, String defaultValue = "" ->
     def localValue = localPublishTable?.getString(key)
@@ -527,6 +530,9 @@ def parseMetadataTable = { def table, String prefix = "metadata" ->
     metadata.updateJsonUrl = optionalStringFromTable(table, "update_json_url")
     metadata.displayUrl = optionalStringFromTable(table, "display_url")
     metadata.displayTest = optionalStringFromTable(table, "display_test", "MATCH_VERSION")
+    if (!allowedDisplayTests.contains(metadata.displayTest)) {
+        failConfig("metadata.display_test must be one of ${allowedDisplayTests.join(', ')}")
+    }
 
     metadata
 }
@@ -594,6 +600,22 @@ def parseModRelationTables = { def rootTable, String prefix = "mod_relations" ->
 
             if (modId == null || modId.isBlank()) {
                 failConfig("Mod relation ${entryPath} must define mod id")
+            }
+            if (bucketKey != "embedded") {
+                if (versionRange == null || versionRange.isBlank()) {
+                    failConfig("Mod relation ${entryPath} must define version_range")
+                }
+                if (!allowedRelationOrderings.contains(ordering)) {
+                    failConfig("Mod relation ${entryPath}.ordering must be one of ${allowedRelationOrderings.join(', ')}")
+                }
+                if (!allowedRelationSides.contains(side)) {
+                    failConfig("Mod relation ${entryPath}.side must be one of ${allowedRelationSides.join(', ')}")
+                }
+            }
+            if (bucketKey == "embedded") {
+                if ((modrinthProject == null || modrinthProject.isBlank()) && (curseforgeProject == null || curseforgeProject.isBlank())) {
+                    failConfig("Mod relation ${entryPath} must define modrinth or curseforge project id")
+                }
             }
 
             relationSpecs << [
