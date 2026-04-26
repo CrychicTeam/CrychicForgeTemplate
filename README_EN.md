@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 1.21.1 Mod Template
+# PickAIDForgeTemplate — NeoForge 1.20.4 Mod Template
 
 English | [中文版](README.MD)
 
-`PickAIDForgeTemplate-1.21.1` is the `NeoForge 1.21.1` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
+`PickAIDForgeTemplate-1.20.4` is the `NeoForge 1.20.4` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
 
 ## Contents
 
@@ -34,7 +34,7 @@ English | [中文版](README.MD)
 
 Out of the box this branch already includes:
 
-- A buildable `NeoForge 1.21.1` project skeleton
+- A buildable `NeoForge 1.20.4` project skeleton
 - TOML-driven project configuration through `project.toml`
 - Built-in feature switches for JEI, Curios, GeckoLib, Player Animator, and MixinExtras
 - A deliberately small set of local helper packs, currently centered on `curios`
@@ -46,7 +46,7 @@ Out of the box this branch already includes:
 
 ## Prerequisites
 
-- **JDK 21** or whatever Java version this branch requires
+- **JDK 17** or whatever Java version this branch requires
 - A usable Gradle environment through the included wrapper
 - Basic Minecraft modding context such as `mod_id`, Mixins, `neoforge.mods.toml`, and Maven dependencies
 
@@ -56,7 +56,7 @@ Out of the box this branch already includes:
 
 ```bash
 git clone <repository-url>
-cd PickAIDForgeTemplate-1.21.1
+cd PickAIDForgeTemplate-1.20.4
 ```
 
 ### 2. Edit `project.toml`
@@ -253,7 +253,7 @@ String shorthand means "version range only":
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,)"
+curios = "[7.4.3,)"
 ```
 
 On this branch, every relation except `embedded` must define `version_range`. When you use the inline-table form, `ordering` must be `NONE`, `BEFORE`, or `AFTER`, and `side` must be `BOTH`, `CLIENT`, or `SERVER`.
@@ -432,5 +432,5 @@ Use `version_range` inside `mod_relations.*`:
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,10.0.0)"
+curios = "[7.4.3,8.0.0)"
 ```

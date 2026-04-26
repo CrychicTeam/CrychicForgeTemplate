@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 1.21.1 模组模板
+# PickAIDForgeTemplate — NeoForge 1.20.4 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-1.21.1` 是面向 `NeoForge 1.21.1` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
+`PickAIDForgeTemplate-1.20.4` 是面向 `NeoForge 1.20.4` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
 
 ## 目录
 
@@ -34,7 +34,7 @@
 
 克隆后即可直接使用的内容包括：
 
-- **NeoForge 1.21.1 项目骨架**：基于官方 `ModDevGradle`
+- **NeoForge 1.20.4 项目骨架**：基于官方 `ModDevGradle`
 - **`project.toml` 配置驱动**：模组信息、依赖、发布走一套 TOML 结构
 - **生态集成开关**：JEI、Curios、GeckoLib、Player Animator、MixinExtras
 - **本地调试辅助包**：当前分支先保留一个经过校准的 `curios` dev pack
@@ -46,7 +46,7 @@
 
 ## 前置条件
 
-- **JDK 21** 或当前分支要求的 Java 版本
+- **JDK 17** 或当前分支要求的 Java 版本
 - 一个可用的 Gradle 环境（项目自带 Gradle Wrapper）
 - 基本的 Minecraft Mod 开发概念（`mod_id`、Mixin、`neoforge.mods.toml`、Maven 依赖）
 
@@ -56,7 +56,7 @@
 
 ```bash
 git clone <仓库地址>
-cd PickAIDForgeTemplate-1.21.1
+cd PickAIDForgeTemplate-1.20.4
 ```
 
 ### 2. 编辑 `project.toml`
@@ -253,7 +253,7 @@ Gradle 子项目不放在 `[dependencies.*]`，而是放在：
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,)"
+curios = "[7.4.3,)"
 ```
 
 除了 `embedded` 以外，这条分支上的关系都必须提供 `version_range`。如果使用 inline table，`ordering` 只能是 `NONE`、`BEFORE`、`AFTER`，`side` 只能是 `BOTH`、`CLIENT`、`SERVER`。
@@ -432,5 +432,5 @@ dependencies {
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,10.0.0)"
+curios = "[7.4.3,8.0.0)"
 ```

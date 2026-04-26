@@ -1,28 +1,28 @@
 # Keep this branch-specific defaults file intentionally curated. Project-level
 # extras belong in project.toml via [repositories] and [dependencies.*].
-defaults_revision = "neoforge-1.21.1-r1"
+defaults_revision = "neoforge-1.20.4-r1"
 
 [platform]
 loader = "neoforge"
 publish_loader = "NeoForge"
-mc_version = "1.21.1"
-mc_range = "[1.21.1]"
-loader_version = "21.1.227"
+mc_version = "1.20.4"
+mc_range = "[1.20.4]"
+loader_version = "20.4.251"
 loader_version_range = "[1,)"
-java = "21"
+java = "17"
 mixin_extras_group = "io.github.llamalad7"
-parchment_mappings = "2024.11.17"
+parchment_mappings = "2024.04.14"
 game_test_namespace_property = "neoforge.enabledGameTestNamespaces"
 supported_dev_packs = ["curios"]
 
 [versions]
-registrate = "MC1.21-1.3.0+66"
-jei = "19.27.0.340"
-curios = "9.5.1+1.21.1"
-geckolib = "4.8.4"
-player_animator = "2.0.4+1.21.1"
-bendylib = "5.1"
-mixin_extras = "0.5.4"
+registrate = "MC1.20.4-1.3.0+36"
+jei = "17.3.1.5"
+curios = "7.4.3+1.20.4"
+geckolib = "4.4.4"
+player_animator = "1.0.2-rc1+1.20.4"
+bendylib = "4.1.0"
+mixin_extras = "0.4.1"
 
 [builtin_repositories.blamejared]
 name = "Jared's Maven"
@@ -119,4 +119,4 @@ mixinextras_loader = "{mixin_extras_group}:mixinextras-{mixin_extras_loader}:{mi
 description = "Curios local runtime for slot and accessory integration testing."
 
 [dev_packs.curios.dependencies.deobf_runtime_only]
-curios = "top.theillusivec4.curios:curios-neoforge:9.5.1+1.21.1"
+curios = "top.theillusivec4.curios:curios-neoforge:7.4.3+1.20.4"

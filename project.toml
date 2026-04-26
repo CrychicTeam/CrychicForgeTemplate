@@ -1,5 +1,5 @@
 schema_version = 1
-template_version = "1.21.1-template-1.0.0"
+template_version = "1.20.4-template-1.0.0"
 
 [mod]
 mod_id = "example"
@@ -22,18 +22,18 @@ mixin_extras = true
 
 [dev_packs]
 # This branch keeps dev packs intentionally small until each helper pack has
-# been re-curated for NeoForge 1.21.1.
+# been re-curated for NeoForge 1.20.4.
 curios = false
 
 [overrides]
 # Only override curated versions when an enabled built-in feature needs a
 # different version than the template default.
-# jei_version = "19.27.0.340"
-# curios_version = "9.5.1+1.21.1"
-# geckolib_version = "4.8.4"
-# player_animator_version = "2.0.4+1.21.1"
-# bendylib_version = "5.1"
-# mixin_extras_version = "0.5.4"
+# jei_version = "17.3.1.5"
+# curios_version = "7.4.3+1.20.4"
+# geckolib_version = "4.4.4"
+# player_animator_version = "1.0.2-rc1+1.20.4"
+# bendylib_version = "4.1.0"
+# mixin_extras_version = "0.4.1"
 
 [repositories]
 # These common repositories are already filled in for you.
@@ -59,25 +59,25 @@ jitpack = "https://jitpack.io"
 # consumers. deobf_* buckets are for mod dependencies that need remapping.
 # Example:
 # [dependencies.deobf_api]
-# registrate_api = "com.tterrag.registrate:Registrate:MC1.21-1.3.0+66"
+# registrate_api = "com.tterrag.registrate:Registrate:MC1.20.4-1.3.0+36"
 #
 # [dependencies.deobf_compile_only]
-# jei_common_api = "mezz.jei:jei-1.21.1-common-api:19.27.0.340"
-# jei_neoforge_api = "mezz.jei:jei-1.21.1-neoforge-api:19.27.0.340"
+# jei_common_api = "mezz.jei:jei-1.20.4-common-api:17.3.1.5"
+# jei_neoforge_api = "mezz.jei:jei-1.20.4-neoforge-api:17.3.1.5"
 #
 # [dependencies.deobf_runtime_only]
-# jei_runtime = "mezz.jei:jei-1.21.1-neoforge:19.27.0.340"
+# jei_runtime = "mezz.jei:jei-1.20.4-neoforge:17.3.1.5"
 #
 # [dependencies.deobf_implementation]
-# geckolib = "software.bernie.geckolib:geckolib-neoforge-1.21.1:4.8.4"
-# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:2.0.4+1.21.1"
-# mixinextras_neoforge = "io.github.llamalad7:mixinextras-neoforge:0.5.4"
+# geckolib = "software.bernie.geckolib:geckolib-neoforge-1.20.4:4.4.4"
+# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:1.0.2-rc1+1.20.4"
+# mixinextras_neoforge = "io.github.llamalad7:mixinextras-neoforge:0.4.1"
 #
 # [dependencies.compile_only]
-# mixinextras_common = "io.github.llamalad7:mixinextras-common:0.5.4"
+# mixinextras_common = "io.github.llamalad7:mixinextras-common:0.4.1"
 #
 # [dependencies.annotation_processor]
-# mixinextras_common_processor = "io.github.llamalad7:mixinextras-common:0.5.4"
+# mixinextras_common_processor = "io.github.llamalad7:mixinextras-common:0.4.1"
 #
 # [dependencies.jarjar]
 # helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }
@@ -107,14 +107,14 @@ jitpack = "https://jitpack.io"
 # Allowed: MATCH_VERSION, IGNORE_SERVER_VERSION, IGNORE_ALL_VERSION, NONE
 # display_test = "MATCH_VERSION"
 
-# NeoForge 1.21.1 supports required / optional / incompatible / discouraged
+# NeoForge 1.20.4 supports required / optional / incompatible / discouraged
 # dependency types directly in neoforge.mods.toml.
 # required / optional / incompatible / discouraged must define version_range.
 # ordering: NONE, BEFORE, AFTER
 # side: BOTH, CLIENT, SERVER
 # String shorthand means version_range only:
 # [mod_relations.required]
-# curios = "[9.5.1,)"
+# curios = "[7.4.3,)"
 #
 # Inline-table form also supports reason, referral_url, and upload ids:
 # [mod_relations.optional]
@@ -132,7 +132,7 @@ jitpack = "https://jitpack.io"
 
 [publish]
 # Leave blank for local-only publishing. MAVEN_URL can override this in CI.
-maven_url = "https://maven.mihono.cn/repository/pickaid1211/"
+maven_url = "https://maven.mihono.cn/repository/pickaid1204/"
 # Local machine settings should normally go in project.local.toml instead:
 # - [run].mc_user
 # - [publish].maven_user / maven_password / modrinth_token / curseforge_token
