@@ -1,5 +1,5 @@
 schema_version = 1
-template_version = "1.18.2-template-1.0.0"
+template_version = "1.17.1-template-1.0.0"
 
 [mod]
 mod_id = "example"
@@ -32,19 +32,15 @@ appleskin = false
 combat = false
 # Curios runtime when you need accessory slot behavior in local runs.
 curios = false
-# Caelus + Iron's Spellbooks for spell and attribute smoke testing.
-spell = false
-# KubeJS + Rhino + Architectury for local script-driven testing.
-kubejs = false
 
 [overrides]
 # Only override curated versions when an enabled built-in feature needs a
 # different version than the template default.
-# jei_version = "10.2.1.1009"
-# curios_version = "1.18.2-5.0.9.2"
-# geckolib_version = "3.0.57"
-# player_animator_version = "1.0.2+1.18"
-# bendylib_version = "4.0.0"
+# jei_version = "8.3.1.1002"
+# curios_version = "1.17.1-5.0.2.7"
+# geckolib_version = "3.0.0"
+# player_animator_version = "0.4.0"
+# bendylib_version = "3.0.0"
 # mixin_extras_version = "0.2.2"
 
 [repositories]
@@ -53,7 +49,7 @@ kubejs = false
 # mod or library lives somewhere else.
 # You can also use the inline-table form when you want a clearer display name
 # or a content filter for specific groups:
-# custom_spell_repo = { url = "https://code.redspace.io/releases", name = "Redspace", groups = ["io.redspace.ironsspellbooks"], group_regexes = ["io\\.redspace\\..*"] }
+# custom_runtime_repo = { url = "https://example.com/maven", name = "Example Repo", groups = ["com.example"], group_regexes = ["com\\.example\\..*"] }
 blamejared = "https://maven.blamejared.com/"
 tterrag = "https://maven.tterrag.com/"
 sponge = "https://repo.spongepowered.org/maven"
@@ -71,16 +67,16 @@ jitpack = "https://jitpack.io"
 # consumers. deobf_* buckets are for mod dependencies that need remapping.
 # Example:
 # [dependencies.deobf_api]
-# registrate_api = "com.tterrag.registrate:Registrate:MC1.18.2-1.1.3"
+# registrate_api = "com.tterrag.registrate:Registrate:MC1.17.1-1.0.14"
 #
 # [dependencies.deobf_compile_only]
-# kubejs = "curse.maven:kubejs-238086:4377177"
+# jade = "curse.maven:jade-324717:3468298"
 #
 # [dependencies.deobf_implementation]
-# architectury = { notation = "dev.architectury:architectury-forge:4.12.94", transitive = false }
+# architectury = { notation = "dev.architectury:architectury-forge:3.9.66", transitive = false }
 #
 # [dependencies.deobf_compile_only_api]
-# curios_api = "top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2"
+# curios_api = "top.theillusivec4.curios:curios-forge:1.17.1-5.0.2.7"
 #
 # [dependencies.jarjar]
 # helper = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
@@ -91,21 +87,20 @@ jitpack = "https://jitpack.io"
 #
 # Base API surface example:
 # [dependencies.deobf_api]
-# registrate = "com.tterrag.registrate:Registrate:MC1.18.2-1.1.3"
+# registrate = "com.tterrag.registrate:Registrate:MC1.17.1-1.0.14"
 #
 # Common feature-style examples:
 # [dependencies.deobf_compile_only]
-# jei_common_api = "mezz.jei:jei-1.18.2-common-api:10.2.1.1009"
-# jei_forge_api = "mezz.jei:jei-1.18.2-forge-api:10.2.1.1009"
-# curios = "top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2"
+# jei = "mezz.jei:jei-1.17.1:8.3.1.1002"
+# curios = "top.theillusivec4.curios:curios-forge:1.17.1-5.0.2.7"
 #
 # [dependencies.deobf_runtime_only]
-# jei_runtime = "mezz.jei:jei-1.18.2-forge:10.2.1.1009"
-# bendylib = "io.github.kosmx.bendy-lib:bendy-lib-forge:4.0.0"
+# jei_runtime = "mezz.jei:jei-1.17.1:8.3.1.1002"
+# bendylib = "io.github.kosmx.bendy-lib:bendy-lib-forge:3.0.0"
 #
 # [dependencies.deobf_implementation]
-# geckolib = "software.bernie.geckolib:geckolib-forge-1.18:3.0.57"
-# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:1.0.2+1.18"
+# geckolib = "software.bernie.geckolib:geckolib-forge-1.17.1:3.0.0"
+# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:0.4.0"
 # mixinextras_forge = "com.github.llamalad7.mixinextras:mixinextras-forge:0.2.2"
 #
 # [dependencies.compile_only]
@@ -114,34 +109,27 @@ jitpack = "https://jitpack.io"
 # [dependencies.annotation_processor]
 # mixinextras_common_processor = "com.github.llamalad7.mixinextras:mixinextras-common:0.2.2"
 #
-# Typical extra ecosystem examples:
-# [dependencies.deobf_compile_only]
-# kubejs = "curse.maven:kubejs-238086:4377177"
-# rhino = "curse.maven:rhino-416294:4069880"
-#
 # [dependencies.deobf_implementation]
-# architectury = { notation = "dev.architectury:architectury-forge:4.12.94", transitive = false }
+# architectury = { notation = "dev.architectury:architectury-forge:3.9.66", transitive = false }
 
 # Built-in local dev packs can be toggled in [dev_packs].
 # basic: JEI + Jade
 # appleskin: AppleSkin only
 # combat: Target Dummy + AttributeFix + Max Health Fix
 # curios: Curios runtime
-# spell: Caelus + Iron's Spellbooks
-# kubejs: Architectury + Rhino + KubeJS runtime
 
 [compat]
-# Optional legacy compatibility keys for projects that still have custom
-# build.gradle logic reading config.<name> values directly.
-# Keep these minimal and migrate them away when the project no longer needs
-# the old keys.
-# reference_projects = false
-# kubejs_version = "1802.5.5-build.569"
-# rhino_version = "1802.2.1-build.255"
+# Optional compatibility values still read by the upload tasks.
+# Separate entries with semicolons.
+# For Modrinth-only ids use @m:<project-id>; for CurseForge-only ids use @c:<slug>.
+# required_mods = ""
+# optional_mods = ""
+# incompatible_mods = ""
+# embedded_mods = ""
 
 [publish]
 # Leave blank for local-only publishing. MAVEN_URL can override this in CI.
-maven_url = "https://maven.mihono.cn/repository/pickaid1182/"
+maven_url = "https://maven.mihono.cn/repository/pickaid1171/"
 # Local machine settings should normally go in project.local.toml instead:
 # - [run].mc_user
 # - [publish].maven_user / maven_password / modrinth_token / curseforge_token

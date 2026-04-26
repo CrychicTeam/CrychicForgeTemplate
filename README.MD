@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — Forge 1.18.2 模组模板
+# PickAIDForgeTemplate — Forge 1.17.1 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-1.18.2` 只服务于 `Forge 1.18.2`。这条分支已经按 `1.18.2` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版，不再混着 `1.20.1` 的旧值。
+`PickAIDForgeTemplate-1.17.1` 只服务于 `Forge 1.17.1`。这条分支按 `1.17.1` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版，不混用后续版本的坐标。
 
 这支模板的目标很直接：
 
@@ -19,17 +19,17 @@
 
 也就是说：
 
-- 这条分支只负责 `Forge 1.18.2`
+- 这条分支只负责 `Forge 1.17.1`
 - 不接受 `project.toml [platform]`
 - 不接受 `-PtemplateProfile=...`
 - `build.txt` 和 `template.toml` 都已经废弃
 
 ## 这条分支当前预置了什么
 
-- `Forge 1.18.2` + `ModDevGradle LegacyForge`
+- `Forge 1.17.1` + `ModDevGradle LegacyForge`
 - `project.toml` 单入口配置
 - 内置 feature 开关：`jei`、`curios`、`geckolib`、`player_animator`、`mixin_extras`
-- 内置本地调试包：`basic`、`appleskin`、`combat`、`curios`、`spell`、`kubejs`
+- 内置本地调试包：`basic`、`appleskin`、`combat`、`curios`
 - Maven 发布、Modrinth / CurseForge 上传任务
 - 共享的 Mixin 模板和 `mods.toml` 模板
 
@@ -41,7 +41,7 @@
 
 ```toml
 schema_version = 1
-template_version = "1.18.2-template-1.0.0"
+template_version = "1.17.1-template-1.0.0"
 
 [mod]
 mod_id = "yourmod"
@@ -112,16 +112,14 @@ version_suffix = "hotfix.1"
 
 这些是本地开发辅助包，不是你正式对外的 API 面。
 
-当前内置：
+当前可直接开启：
 
 - `basic`: JEI + Jade
 - `appleskin`: AppleSkin
 - `combat`: Target Dummy + AttributeFix + Max Health Fix
 - `curios`: Curios 本地运行时
-- `spell`: Caelus + Iron's Spellbooks
-- `kubejs`: Architectury + Rhino + KubeJS 本地运行时
 
-`kubejs` 这组现在已经按 `1.18.2` 的实际版本重新校准，可以直接拿来做本地脚本测试。
+`spell` 和 `kubejs` 在 `1.17.1` 生态里没有像后续版本那样稳定的默认组合，所以这条分支不把它们作为可直接开启的预置包。需要时可以在 `[dependencies.*]` 里手动写精确坐标。
 
 ### `[repositories]` 和 `[dependencies.*]`
 
@@ -142,7 +140,7 @@ version_suffix = "hotfix.1"
 - `deobf_runtime_only`
 - `jarjar`
 
-`project.toml` 里已经给了 1.18.2 对应的示例坐标，直接取消注释再按需调整即可。
+`project.toml` 里已经给了 1.17.1 对应的示例坐标，直接取消注释再按需调整即可。
 
 ## 本机私有配置
 

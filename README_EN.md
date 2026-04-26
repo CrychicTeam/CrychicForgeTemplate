@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — Forge 1.18.2 Mod Template
+# PickAIDForgeTemplate — Forge 1.17.1 Mod Template
 
 English | [中文版](README.MD)
 
-`PickAIDForgeTemplate-1.18.2` is only for `Forge 1.18.2`. This branch has been re-curated against the real `1.18.2` ecosystem, so the built-in versions in `project.toml`, the CurseMaven file ids, the local helper packs, and the publishing scripts all line up with this branch instead of carrying old `1.20.1` values.
+`PickAIDForgeTemplate-1.17.1` is only for `Forge 1.17.1`. This branch has been re-curated against the real `1.17.1` ecosystem, so the built-in versions in `project.toml`, the CurseMaven file ids, the local helper packs, and the publishing scripts line up with this branch instead of carrying coordinates from newer Minecraft versions.
 
 The point of this template is simple:
 
@@ -19,17 +19,17 @@ Versions are managed by branch, not by profile.
 
 That means:
 
-- this branch only targets `Forge 1.18.2`
+- this branch only targets `Forge 1.17.1`
 - it does not accept `project.toml [platform]`
 - it does not accept `-PtemplateProfile=...`
 - `build.txt` and `template.toml` are no longer valid here
 
 ## What This Branch Already Includes
 
-- `Forge 1.18.2` on `ModDevGradle LegacyForge`
+- `Forge 1.17.1` on `ModDevGradle LegacyForge`
 - a single TOML entry point through `project.toml`
 - built-in feature switches for `jei`, `curios`, `geckolib`, `player_animator`, and `mixin_extras`
-- built-in local helper packs for `basic`, `appleskin`, `combat`, `curios`, `spell`, and `kubejs`
+- built-in local helper packs for `basic`, `appleskin`, `combat`, and `curios`
 - Maven publishing plus Modrinth / CurseForge upload tasks
 - shared Mixin and `mods.toml` templates
 
@@ -41,7 +41,7 @@ In most cases this is enough to start:
 
 ```toml
 schema_version = 1
-template_version = "1.18.2-template-1.0.0"
+template_version = "1.17.1-template-1.0.0"
 
 [mod]
 mod_id = "yourmod"
@@ -112,16 +112,14 @@ Built-in feature switches:
 
 These are local development helper packs, not your published API surface.
 
-Built in right now:
+Ready to enable on this branch:
 
 - `basic`: JEI + Jade
 - `appleskin`: AppleSkin
 - `combat`: Target Dummy + AttributeFix + Max Health Fix
 - `curios`: Curios local runtime
-- `spell`: Caelus + Iron's Spellbooks
-- `kubejs`: Architectury + Rhino + KubeJS local runtime
 
-The `kubejs` pack is now re-curated for real `1.18.2` development instead of pointing at newer branch values.
+`spell` and `kubejs` do not have the same stable default stack on `1.17.1` as they do on newer branches. If you need them, add exact coordinates manually under `[dependencies.*]`.
 
 ### `[repositories]` and `[dependencies.*]`
 
@@ -142,7 +140,7 @@ Common dependency buckets:
 - `deobf_runtime_only`
 - `jarjar`
 
-The commented examples in `project.toml` already use `1.18.2`-correct coordinates, so you can usually start by uncommenting and adjusting them.
+The commented examples in `project.toml` already use `1.17.1`-correct coordinates, so you can usually start by uncommenting and adjusting them.
 
 ## Local-Only Settings
 
