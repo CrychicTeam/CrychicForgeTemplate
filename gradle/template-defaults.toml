@@ -15,7 +15,7 @@ java = "17"
 mixin_extras_group = "com.github.llamalad7.mixinextras"
 parchment_mappings = "2023.09.03"
 game_test_namespace_property = "forge.enabledGameTestNamespaces"
-supported_dev_packs = ["basic", "appleskin", "combat", "curios", "spell", "kubejs"]
+supported_dev_packs = ["basic", "appleskin", "combat", "curios", "spell"]
 
 [versions]
 registrate = "MC1.20-1.3.2"
@@ -148,11 +148,3 @@ redspace = "https://code.redspace.io/releases"
 [dev_packs.spell.dependencies.deobf_runtime_only]
 caelus = "curse.maven:caelus-308989:5281700"
 irons_spellbooks = "io.redspace.ironsspellbooks:irons_spellbooks:1.20.1-3.4.0.4"
-
-[dev_packs.kubejs]
-description = "KubeJS local runtime for script-driven smoke tests."
-
-[dev_packs.kubejs.dependencies.deobf_runtime_only]
-architectury = "dev.architectury:architectury-forge:9.1.12"
-rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
-kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"

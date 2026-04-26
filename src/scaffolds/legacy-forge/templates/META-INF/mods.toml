@@ -1,16 +1,16 @@
 modLoader="javafml"
 loaderVersion="${loader_version_range}"
-issueTrackerURL="${issue_tracker_url}"
 license="${mod_license}"
+${file_metadata_lines}
 
 [[mods]]
 modId="${mod_id}"
 version="${mod_version}"
 displayName="${mod_name}"
-logoFile="icon.png"
 credits="${mod_credits}"
 authors="${mod_authors}"
 description='''${mod_description}'''
+${mod_metadata_lines}
 
 [[dependencies.${mod_id}]]
 modId="forge"
@@ -25,3 +25,4 @@ mandatory=true
 versionRange="${minecraft_version_range}"
 ordering="NONE"
 side="BOTH"
+${mod_relation_blocks}

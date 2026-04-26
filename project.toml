@@ -34,8 +34,8 @@ combat = false
 curios = false
 # Caelus + Iron's Spellbooks for spell and attribute smoke testing.
 spell = false
-# KubeJS + Rhino + Architectury for local script-driven testing.
-kubejs = false
+# KubeJS is not a built-in dev pack on this branch.
+# Add it manually under [dependencies.*] when you need the script stack.
 
 [overrides]
 # Only override curated versions when an enabled built-in feature needs a
@@ -142,16 +142,39 @@ jitpack = "https://jitpack.io"
 # combat: Target Dummy + AttributeFix + Max Health Fix
 # curios: Curios runtime
 # spell: Caelus + Iron's Spellbooks
-# kubejs: Architectury + Rhino + KubeJS runtime
+# KubeJS / Rhino / Architectury are left as manual dependency examples.
 
-[compat]
-# Optional legacy compatibility keys for projects that still have custom
-# build.gradle logic reading config.<name> values directly.
-# Keep these minimal and migrate them away when the project no longer needs
-# the old keys.
-# reference_projects = false
-# kubejs_version = "2001.6.4-build.120"
-# rhino_version = "2001.2.2-build.18"
+[metadata]
+# Optional mod metadata written into mods.toml.
+# logo_file = "icon.png"
+# logo_blur = true
+# show_as_resource_pack = false
+# show_as_data_pack = false
+# update_json_url = ""
+# display_url = ""
+# Allowed: MATCH_VERSION, IGNORE_SERVER_VERSION, IGNORE_ALL_VERSION, NONE
+# display_test = "MATCH_VERSION"
+
+# Forge 1.20.1 only writes required/optional relations into mods.toml.
+# incompatible and embedded still feed Modrinth/CurseForge relation metadata.
+# discouraged is not supported on this branch.
+# required/optional must define version_range.
+# ordering: NONE, BEFORE, AFTER
+# side: BOTH, CLIENT, SERVER
+# String shorthand means version_range only:
+# [mod_relations.required]
+# curios = "[5.9.1,)"
+#
+# Inline-table form lets you control metadata and upload platform ids:
+# [mod_relations.optional]
+# jade = { version_range = "*", ordering = "NONE", side = "BOTH", referral_url = "https://www.curseforge.com/minecraft/mc-mods/jade", modrinth = "nvQzSEkH", curseforge = "324717" }
+#
+# incompatible/embedded must define at least one upload-platform project id.
+# [mod_relations.incompatible]
+# optifine = { modrinth = "nCQRBEiR", curseforge = "228404" }
+#
+# [mod_relations.embedded]
+# geckolib = { modrinth = "8BmcQJ2H", curseforge = "388172" }
 
 [publish]
 # Leave blank for local-only publishing. MAVEN_URL can override this in CI.

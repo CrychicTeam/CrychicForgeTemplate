@@ -1,20 +1,22 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# Minecraft Forge Mod Template
+# PickAIDForgeTemplate
 
 English | [中文版](README.MD)
 
-This template targets Minecraft `1.20.1` on Forge. It is meant to be the place where you change `project.toml`, rename the placeholder package, and start building the mod instead of reworking Gradle every time.
+PickAIDForgeTemplate is a Minecraft Forge mod development template driven by `project.toml`. It manages **mod identity, dependencies, feature switches, run configurations, and publishing** from a single configuration file, so you don't start every project by reworking Gradle.
 
-Out of the box it already gives you:
+## What's Included
 
-- a working Forge project skeleton
-- curated switches for common mod integrations
+- A buildable Forge project skeleton
+- TOML-driven project configuration via `project.toml`
+- Curated feature switches for common mod ecosystems (JEI, Curios, GeckoLib, Player Animator, MixinExtras)
+- Local development helper packs (JEI + Jade, AppleSkin, combat debugging, etc.)
 - Maven publication with `sources`, `javadoc`, and `runtime` jars
-- Modrinth and CurseForge upload wiring
-- a TOML-based way to add more repositories and dependencies without editing `build.gradle`
+- Modrinth and CurseForge upload tasks with environment-variable token injection
+- TOML-based dependency and repository management — no hand-editing `build.gradle`
 
-`template.toml` and `build.txt` are retired. This template reads `project.toml` and can also read an ignored `project.local.toml`.
+> The legacy `template.toml` and `build.txt` formats are retired. The template reads `project.toml` and an optional `project.local.toml`.
 
 ## Quick Start
 
@@ -31,7 +33,7 @@ At minimum, change the mod identity and naming:
 
 ```toml
 schema_version = 1
-template_version = "1.20.1-template-1.0.0"
+template_version = "1.20.1-template-1.1.0"
 
 [mod]
 mod_id = "yourmod"
@@ -56,7 +58,6 @@ appleskin = false
 combat = false
 curios = false
 spell = false
-kubejs = false
 
 [publish]
 maven_url = ""
@@ -102,9 +103,21 @@ This file is ignored by default and is where machine-local values belong:
 
 - `mc_user`
 - temporary local publishing credentials
-- local compatibility toggles
+- any other machine-local values you do not want in git
 
 You can start from [`project.local.toml.example`](project.local.toml.example).
+
+## Which Block Should I Edit?
+
+For most projects, you usually only need one of these:
+
+- **I just want to turn the template into my own mod**: edit `[mod]` and `[naming]`
+- **I only want local helper mods for testing recipes, HUD, or combat numbers**: edit `[dev_packs]`
+- **I need to import another mod's API in source code**: use `[features]` first, or declare it manually under `[dependencies.deobf_*]`
+- **I just want a normal Java library**: use the base buckets such as `[dependencies.implementation]`, `[dependencies.api]`, or `[dependencies.compile_only]`
+- **I want a dependency bundled into the final jar**: use `[dependencies.jarjar]`
+- **I want dependency / incompatibility / optional integration metadata written into `mods.toml`**: edit `[mod_relations.*]`
+- **I want Maven / Modrinth / CurseForge publishing**: edit `[publish]`
 
 ## `project.toml` Reference
 
@@ -160,7 +173,6 @@ Built-in packs:
 - `combat`: Target Dummy, AttributeFix, Max Health Fix
 - `curios`: local Curios runtime
 - `spell`: Caelus, Iron's Spellbooks
-- `kubejs`: local Architectury, Rhino, and KubeJS runtime
 
 Enable them directly:
 
@@ -171,13 +183,14 @@ appleskin = false
 combat = true
 curios = false
 spell = false
-kubejs = false
 ```
 
-Use this when you want a ready-to-run local environment for recipe lookup, entity inspection, combat balancing, Curios slot testing, or KubeJS-based smoke testing.
+Use this when you want a ready-to-run local environment for recipe lookup, entity inspection, combat balancing, or Curios slot testing.
 
 If you need to compile against the JEI API in code, you should still enable `[features].jei`. The `basic` pack only adds JEI and Jade to the local runtime.
-If you need to compile against Curios or KubeJS APIs in code, you should still declare them explicitly through `[features]` or `[dependencies.*]`. The `curios` and `kubejs` packs only add local runtime support.
+If you need to compile against Curios APIs in code, you should still declare them explicitly through `[features]` or `[dependencies.*]`. The `curios` pack only adds local runtime support.
+
+On this `1.20.1` branch, KubeJS is no longer maintained as a built-in `dev_pack`. Add it manually through `[dependencies.*]` when you need it.
 
 ### `[repositories]`
 
@@ -290,6 +303,70 @@ internal = ":internal"
 
 - `[embedded_projects.api]`: bundle the subproject and let downstream builds compile against it through the main published artifact.
 - `[embedded_projects.implementation]`: bundle the subproject but keep it internal to the main mod.
+
+### `[metadata]`
+
+This block controls the display metadata written into `mods.toml`.
+
+The fields you will usually care about are:
+
+- `logo_file`
+- `logo_blur`
+- `show_as_resource_pack`
+- `show_as_data_pack`
+- `update_json_url`
+- `display_url`
+- `display_test` (`MATCH_VERSION`, `IGNORE_SERVER_VERSION`, `IGNORE_ALL_VERSION`, or `NONE`)
+
+Typical example:
+
+```toml
+[metadata]
+logo_file = "icon.png"
+logo_blur = true
+display_test = "MATCH_VERSION"
+```
+
+### `[mod_relations.*]`
+
+This is the shared place where you describe how your mod relates to other mods. The template uses it for generated metadata and for Modrinth / CurseForge upload relations.
+
+On the Forge `1.20.1` branch, the practical rules are:
+
+- `required` and `optional` are written into `mods.toml`
+- `incompatible` and `embedded` still feed upload-platform relations
+- `discouraged` is not supported on this branch and will fail fast
+
+String shorthand means "version range only":
+
+```toml
+[mod_relations.required]
+curios = "[5.9.1,)"
+```
+
+`required` and `optional` must define `version_range`. When you use the inline-table form, `ordering` must be `NONE`, `BEFORE`, or `AFTER`, and `side` must be `BOTH`, `CLIENT`, or `SERVER`.
+
+Inline tables let you include upload ids too:
+
+```toml
+[mod_relations.optional]
+jade = { version_range = "*", modrinth = "nvQzSEkH", curseforge = "324717" }
+
+[mod_relations.incompatible]
+optifine = { modrinth = "nCQRBEiR", curseforge = "228404" }
+
+[mod_relations.embedded]
+geckolib = { modrinth = "8BmcQJ2H", curseforge = "388172" }
+```
+
+On Forge `1.20.1`, `incompatible` and `embedded` are upload-platform metadata only. They must define at least one `modrinth` or `curseforge` project id, otherwise the relation would do nothing and the template now fails fast.
+
+You can also add:
+
+- `mod_id`
+- `ordering`
+- `side`
+- `referral_url`
 
 ### `[publish]`
 

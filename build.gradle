@@ -32,13 +32,15 @@ def templateFeatureDependencies = project.ext.templateFeatureDependencies
 def templateDependencies = project.ext.templateDependencies
 def templateDevPackDependencies = project.ext.templateDevPackDependencies
 def templateEmbeddedProjects = project.ext.templateEmbeddedProjects
+def templateMetadata = project.ext.templateMetadata
+def templateModRelations = project.ext.templateModRelations
 def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
 def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
 def hasModrinthTarget = !template.modrinthProject.isBlank()
 def hasCurseforgeTarget = template.curseforgeProject > 0L
 def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
-def runtimeDistributionJar = layout.buildDirectory.file("libs/${renderedArchiveStem}.jar")
+def runtimeDistributionJar = layout.buildDirectory.file("libs/${template.archiveName}-${template.finalVersion}.jar")
 def mixinRefmapMappings = layout.buildDirectory.file("mixin/${template.modId}.refmap.json.mappings.tsrg")
 def mdgNamedToIntermediate = layout.buildDirectory.file("moddev/artifacts/namedToIntermediate.tsrg")
 def scaffoldJavaDir = file("src/scaffolds/legacy-forge/java")
@@ -49,6 +51,12 @@ version = template.finalVersion
 group = template.group
 base {
     archivesName = template.archiveName
+}
+
+def effectiveLocalMavenRepository = System.getProperty("maven.repo.local")
+if (effectiveLocalMavenRepository == null || effectiveLocalMavenRepository.isBlank()) {
+    effectiveLocalMavenRepository = "${System.getProperty("user.home")}/.m2/repository"
+    System.setProperty("maven.repo.local", effectiveLocalMavenRepository)
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(templatePlatform.javaVersion))
@@ -427,6 +435,80 @@ def remappedConfigurationFor = { String configuration ->
     }
 }
 
+def tomlEscape = { String value ->
+    (value ?: "")
+        .replace("\\", "\\\\")
+        .replace("\"", "\\\"")
+}
+
+def renderTomlStringLine = { String key, String value ->
+    value == null || value.isBlank() ? null : "${key}=\"${tomlEscape(value)}\""
+}
+
+def renderForgeFileMetadataLines = {
+    def lines = []
+    def issueTrackerLine = renderTomlStringLine("issueTrackerURL", template.issueTracker)
+    if (issueTrackerLine != null) {
+        lines << issueTrackerLine
+    }
+    if (templateMetadata.showAsResourcePack) {
+        lines << "showAsResourcePack=true"
+    }
+    if (templateMetadata.showAsDataPack) {
+        lines << "showAsDataPack=true"
+    }
+    lines.join("\n")
+}
+
+def renderForgeModMetadataLines = {
+    def lines = []
+    def logoFileLine = renderTomlStringLine("logoFile", templateMetadata.logoFile)
+    if (logoFileLine != null) {
+        lines << logoFileLine
+    }
+    lines << "logoBlur=${templateMetadata.logoBlur.toString()}"
+
+    def updateJsonLine = renderTomlStringLine("updateJSONURL", templateMetadata.updateJsonUrl)
+    if (updateJsonLine != null) {
+        lines << updateJsonLine
+    }
+
+    def displayUrlLine = renderTomlStringLine("displayURL", templateMetadata.displayUrl)
+    if (displayUrlLine != null) {
+        lines << displayUrlLine
+    }
+
+    def displayTestLine = renderTomlStringLine("displayTest", templateMetadata.displayTest)
+    if (displayTestLine != null) {
+        lines << displayTestLine
+    }
+
+    lines.join("\n")
+}
+
+def renderForgeDependencyBlocks = {
+    templateModRelations
+        .findAll { it.bucket in ["required", "optional"] }
+        .collect { relation ->
+            def lines = [
+                "[[dependencies.${template.modId}]]",
+                "modId=\"${tomlEscape(relation.modId as String)}\"",
+                "mandatory=${relation.bucket == "required"}",
+                "versionRange=\"${tomlEscape(relation.versionRange as String)}\"",
+                "ordering=\"${tomlEscape(relation.ordering as String)}\"",
+                "side=\"${tomlEscape(relation.side as String)}\""
+            ]
+
+            def referralUrlLine = renderTomlStringLine("referralUrl", relation.referralUrl as String)
+            if (referralUrlLine != null) {
+                lines << referralUrlLine
+            }
+
+            lines.join("\n")
+        }
+        .join("\n\n")
+}
+
 dependencies {
     if (Boolean.parseBoolean(config.enable_annotation ?: "true")) {
         compileOnly(annotationProcessor("org.spongepowered:mixin:0.8.7:processor"))
@@ -569,7 +651,9 @@ def replaceProperties = [
     mod_authors            : templateAuthors,
     mod_description        : template.description,
     mod_credits            : template.credits,
-    issue_tracker_url      : template.issueTracker,
+    file_metadata_lines    : renderForgeFileMetadataLines(),
+    mod_metadata_lines     : renderForgeModMetadataLines(),
+    mod_relation_blocks    : renderForgeDependencyBlocks(),
     modrinth_project       : template.modrinthProject,
     curios_version         : resolvedFeatureVersions.curiosVersionRange,
     geckolib_version       : resolvedFeatureVersions.geckolibVersionRange,
@@ -676,10 +760,31 @@ task javadocJar(type: Jar, dependsOn: javadoc) {
     archiveFileName.set("${renderedArchiveStem}-javadoc.jar")
 }
 
+def deobfJarTask = tasks.register("deobfJar", Jar) {
+    dependsOn classes
+    archiveClassifier = 'deobf'
+    from sourceSets.main.output
+    manifest {
+        attributes([
+            "Specification-Title"     : template.modId,
+            "Specification-Vendor"    : "Zeitheron",
+            "Specification-Version"   : "1",
+            "Implementation-Title"    : project.name,
+            "Implementation-Version"  : template.finalVersion,
+            "Implementation-Vendor"   : templateAuthors,
+            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
+            "MixinConfigs"            : "${template.modId}.mixins.json"
+        ])
+    }
+}
+
 publishing {
     publications {
         mavenJava(MavenPublication) {
-            from components.java
+            artifact(deobfJarTask) {
+                builtBy(tasks.named("classes"))
+                classifier = null
+            }
             artifact(tasks.named("srcJar"))
             artifact(tasks.named("javadocJar"))
             artifact(runtimeDistributionJar) {
@@ -728,37 +833,37 @@ publishing {
     }
 }
 
-def localMavenRepository = System.getProperty("maven.repo.local") ?: "${System.getProperty("user.home")}/.m2/repository"
-def localPublicationDirectory = file("${localMavenRepository}/${template.group.replace('.', '/')}/${template.modId}/${template.finalVersion}")
-def localPublicationModuleMetadata = file("${localPublicationDirectory}/${template.modId}-${template.finalVersion}.module")
+def localPublicationRepositoryCandidates = (
+    [effectiveLocalMavenRepository] +
+        [System.getProperty("user.home"), System.getenv("HOME")]
+            .findAll { it != null && !it.isBlank() }
+            .collect { "${it}/.m2/repository" }
+).findAll { it != null && !it.isBlank() }.unique()
+
+def localPublicationModuleMetadataCandidates = localPublicationRepositoryCandidates.collect { repositoryPath ->
+    file("${repositoryPath}/${template.group.replace('.', '/')}/${template.modId}/${template.finalVersion}/${template.modId}-${template.finalVersion}.module")
+}
 
 // Gradle module metadata leaks remapped coordinates. We delete any stale copy
 // so the cleaned POM remains the only local publication metadata surface.
 tasks.named("publishMavenJavaPublicationToMavenLocal").configure {
     doFirst {
-        delete(localPublicationModuleMetadata)
+        delete(localPublicationModuleMetadataCandidates)
     }
 }
 
-task deobfJar(type: Jar) {
-    archiveClassifier = 'deobf'
-    from sourceSets.main.output
-    manifest {
-        attributes([
-            "Specification-Title"     : template.modId,
-            "Specification-Vendor"    : "Zeitheron",
-            "Specification-Version"   : "1",
-            "Implementation-Title"    : project.name,
-            "Implementation-Version"  : template.finalVersion,
-            "Implementation-Vendor"   : templateAuthors,
-            "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ"),
-            "MixinConfigs"            : "${template.modId}.mixins.json"
-        ])
+def deleteLocalPublicationModuleMetadata = tasks.register("deleteLocalPublicationModuleMetadata") {
+    doLast {
+        delete(localPublicationModuleMetadataCandidates)
     }
+}
+
+tasks.named("publishToMavenLocal").configure {
+    finalizedBy(deleteLocalPublicationModuleMetadata)
 }
 
 artifacts {
-    archives deobfJar
+    archives deobfJarTask
     archives srcJar
     archives javadocJar
 }

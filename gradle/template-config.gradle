@@ -82,6 +82,24 @@ def optionalBooleanFromTable = { def table, String key, boolean defaultValue = f
     value != null ? value : defaultValue
 }
 
+def optionalStringLikeFromTable = { def table, String key, String path, String defaultValue = "" ->
+    if (table == null || !table.keySet().contains(key)) {
+        return defaultValue
+    }
+
+    def stringValue = table.getString(key)
+    if (stringValue != null) {
+        return stringValue
+    }
+
+    def longValue = table.getLong(key)
+    if (longValue != null) {
+        return longValue.toString()
+    }
+
+    failConfig("${path}.${key} must be a string or integer")
+}
+
 def optionalStringArray = { def holder, String key, String path, List<String> defaultValue = [] ->
     def array = holder == null ? null : holder.getArray(key)
     if (array == null) {
@@ -132,7 +150,8 @@ def devPacksTable = templateParsed.getTable("dev_packs")
 def repositoriesTable = templateParsed.getTable("repositories")
 def dependenciesTable = templateParsed.getTable("dependencies")
 def embeddedProjectsTable = templateParsed.getTable("embedded_projects")
-def compatTable = templateParsed.getTable("compat")
+def metadataTable = templateParsed.getTable("metadata")
+def modRelationsTable = templateParsed.getTable("mod_relations")
 def publishTable = expectTable(templateParsed, "publish")
 def namingTable = expectTable(templateParsed, "naming")
 def overridesTable = templateParsed.getTable("overrides")
@@ -144,12 +163,11 @@ def builtinDependenciesTable = defaultsParsed.getTable("builtin_dependencies")
 def featureSupportTable = defaultsParsed.getTable("feature_support")
 def localRunTable = localParsed?.getTable("run")
 def localBuildTable = localParsed?.getTable("build")
-def localCompatTable = localParsed?.getTable("compat")
 def localPublishTable = localParsed?.getTable("publish")
 
 // project.toml is intentionally small at the top level so authors can see the
 // supported surface at a glance and configuration errors stay fail-fast.
-def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "embedded_projects", "compat", "overrides", "publish", "naming"] as Set
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "embedded_projects", "metadata", "mod_relations", "overrides", "publish", "naming"] as Set
 def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
@@ -180,6 +198,10 @@ def allowedDependencyBuckets = [
     jarjar                 : [configuration: "jarJar", deobf: false, supportsRange: true]
 ] as Map<String, Map<String, Object>>
 def allowedEmbeddedProjectBuckets = ["api", "implementation"] as Set
+def allowedRelationBuckets = ["required", "optional", "incompatible", "discouraged", "embedded"] as Set
+def allowedDisplayTests = ["MATCH_VERSION", "IGNORE_SERVER_VERSION", "IGNORE_ALL_VERSION", "NONE"] as Set
+def allowedRelationOrderings = ["NONE", "BEFORE", "AFTER"] as Set
+def allowedRelationSides = ["BOTH", "CLIENT", "SERVER"] as Set
 
 def localFirstString = { String key, String defaultValue = "" ->
     def localValue = localPublishTable?.getString(key)
@@ -286,34 +308,8 @@ def parseRepositoryTable = { def table, String prefix = "" ->
     repositories
 }
 
-def parseCompatEntries = { def table, String path ->
-    def entries = [:]
-    if (table == null) {
-        return entries
-    }
-
-    table.keySet().each { key ->
-        def entryPath = qualifyPath(path, key)
-        if (table.isString(key)) {
-            entries[key] = table.getString(key)
-        } else if (table.isBoolean(key)) {
-            entries[key] = table.getBoolean(key).toString()
-        } else if (table.isLong(key)) {
-            entries[key] = table.getLong(key).toString()
-        } else if (table.isDouble(key)) {
-            entries[key] = table.getDouble(key).toString()
-        } else {
-            failConfig("Compat entry ${entryPath} must be a string, boolean, or number")
-        }
-    }
-
-    entries
-}
-
 def builtinRepositories = parseRepositoryTable(builtinRepositoriesTable, "builtin_repositories")
 def customRepositories = parseRepositoryTable(repositoriesTable)
-def projectCompatEntries = parseCompatEntries(compatTable, "compat")
-def localCompatEntries = parseCompatEntries(localCompatTable, "compat")
 
 def parseNotation = { String notation, String path ->
     def parts = notation.split(":", 3)
@@ -496,10 +492,171 @@ def parseEmbeddedProjectTables = { def rootTable, String prefix = "embedded_proj
     embeddedProjectSpecs
 }
 
+def parseMetadataTable = { def table, String prefix = "metadata" ->
+    def metadata = [
+        showAsResourcePack: false,
+        showAsDataPack    : false,
+        logoFile          : "icon.png",
+        logoBlur          : true,
+        updateJsonUrl     : "",
+        displayUrl        : "",
+        displayTest       : "MATCH_VERSION"
+    ]
+
+    if (table == null) {
+        return metadata
+    }
+
+    def allowedKeys = [
+        "show_as_resource_pack",
+        "show_as_data_pack",
+        "logo_file",
+        "logo_blur",
+        "update_json_url",
+        "display_url",
+        "display_test"
+    ] as Set
+
+    table.keySet().each { key ->
+        if (!allowedKeys.contains(key)) {
+            failConfig("Unknown metadata key: ${qualifyPath(prefix, key)}")
+        }
+    }
+
+    metadata.showAsResourcePack = optionalBooleanFromTable(table, "show_as_resource_pack", false)
+    metadata.showAsDataPack = optionalBooleanFromTable(table, "show_as_data_pack", false)
+    metadata.logoFile = optionalStringFromTable(table, "logo_file", "icon.png")
+    metadata.logoBlur = optionalBooleanFromTable(table, "logo_blur", true)
+    metadata.updateJsonUrl = optionalStringFromTable(table, "update_json_url")
+    metadata.displayUrl = optionalStringFromTable(table, "display_url")
+    metadata.displayTest = optionalStringFromTable(table, "display_test", "MATCH_VERSION")
+    if (!allowedDisplayTests.contains(metadata.displayTest)) {
+        failConfig("metadata.display_test must be one of ${allowedDisplayTests.join(', ')}")
+    }
+
+    metadata
+}
+
+def parseModRelationTables = { def rootTable, String prefix = "mod_relations" ->
+    def relationSpecs = []
+    if (rootTable == null) {
+        return relationSpecs
+    }
+
+    rootTable.keySet().each { bucketKey ->
+        if (!allowedRelationBuckets.contains(bucketKey)) {
+            failConfig("Unknown mod relation bucket in ${prefix}: ${bucketKey}")
+        }
+
+        def bucketTable = rootTable.getTable(bucketKey)
+        if (bucketTable == null) {
+            failConfig("Mod relation bucket ${qualifyPath(prefix, bucketKey)} must be a TOML table")
+        }
+
+        bucketTable.keySet().each { relationKey ->
+            def entryPath = "${prefix}.${bucketKey}.${relationKey}"
+            def inlineTable = null
+            def modId = relationKey
+            def versionRange = ""
+            def ordering = "NONE"
+            def side = "BOTH"
+            def reason = ""
+            def referralUrl = ""
+            def modrinthProject = ""
+            def curseforgeProject = ""
+
+            if (bucketTable.isString(relationKey)) {
+                if (bucketKey == "embedded") {
+                    failConfig("Embedded relation ${entryPath} must use an inline table")
+                }
+                versionRange = bucketTable.getString(relationKey)
+            } else if (bucketTable.isTable(relationKey)) {
+                inlineTable = bucketTable.getTable(relationKey)
+
+                def allowedEntryKeys = bucketKey == "embedded"
+                    ? ["modrinth", "curseforge"] as Set
+                    : ["mod_id", "version_range", "ordering", "side", "reason", "referral_url", "modrinth", "curseforge"] as Set
+
+                inlineTable.keySet().each { key ->
+                    if (!allowedEntryKeys.contains(key)) {
+                        failConfig("Mod relation ${entryPath} has unsupported key ${key}")
+                    }
+                }
+
+                if (bucketKey != "embedded") {
+                    modId = optionalStringFromTable(inlineTable, "mod_id", relationKey)
+                    versionRange = optionalStringFromTable(inlineTable, "version_range")
+                    ordering = optionalStringFromTable(inlineTable, "ordering", "NONE")
+                    side = optionalStringFromTable(inlineTable, "side", "BOTH")
+                    reason = optionalStringFromTable(inlineTable, "reason")
+                    referralUrl = optionalStringFromTable(inlineTable, "referral_url")
+                }
+
+                modrinthProject = optionalStringLikeFromTable(inlineTable, "modrinth", entryPath)
+                curseforgeProject = optionalStringLikeFromTable(inlineTable, "curseforge", entryPath)
+            } else {
+                failConfig("Mod relation ${entryPath} must be a string or inline table")
+            }
+
+            if (modId == null || modId.isBlank()) {
+                failConfig("Mod relation ${entryPath} must define mod id")
+            }
+            if (bucketKey in ["required", "optional"]) {
+                if (versionRange == null || versionRange.isBlank()) {
+                    failConfig("Mod relation ${entryPath} must define version_range")
+                }
+                if (!allowedRelationOrderings.contains(ordering)) {
+                    failConfig("Mod relation ${entryPath}.ordering must be one of ${allowedRelationOrderings.join(', ')}")
+                }
+                if (!allowedRelationSides.contains(side)) {
+                    failConfig("Mod relation ${entryPath}.side must be one of ${allowedRelationSides.join(', ')}")
+                }
+            }
+            if (bucketKey in ["incompatible", "discouraged", "embedded"]) {
+                if ((modrinthProject == null || modrinthProject.isBlank()) && (curseforgeProject == null || curseforgeProject.isBlank())) {
+                    failConfig("Mod relation ${entryPath} must define modrinth or curseforge project id")
+                }
+            }
+
+            relationSpecs << [
+                name             : relationKey,
+                bucket           : bucketKey,
+                modId            : modId,
+                versionRange     : versionRange,
+                ordering         : ordering,
+                side             : side,
+                reason           : reason,
+                referralUrl      : referralUrl,
+                modrinthProject  : modrinthProject,
+                curseforgeProject: curseforgeProject
+            ]
+        }
+    }
+
+    def duplicateModIds = relationSpecs
+        .findAll { it.bucket != "embedded" }
+        .groupBy { "${it.bucket}:${it.modId}" }
+        .findAll { _, specs -> specs.size() > 1 }
+        .keySet()
+    if (!duplicateModIds.isEmpty()) {
+        failConfig("Mod relations must not declare the same mod id more than once in the same bucket: ${duplicateModIds.join(', ')}")
+    }
+
+    relationSpecs
+}
+
 // Generic dependency tables let projects opt into extra libraries without the
 // template growing one more hard-coded feature switch for every ecosystem mod.
 def templateDependencySpecs = parseDependencyTables(dependenciesTable)
 def templateEmbeddedProjectSpecs = parseEmbeddedProjectTables(embeddedProjectsTable)
+def templateMetadataSpec = parseMetadataTable(metadataTable)
+def templateModRelationSpecs = parseModRelationTables(modRelationsTable)
+def unsupportedForgeRelationBuckets = templateModRelationSpecs
+    .findAll { it.bucket == "discouraged" }
+    .collect { "mod_relations.${it.bucket}.${it.name}" }
+if (!unsupportedForgeRelationBuckets.isEmpty()) {
+    failConfig("Forge 1.20.1 cannot express discouraged relations in mods.toml or upload metadata: ${unsupportedForgeRelationBuckets.join(', ')}")
+}
 def builtinDependencySpecs = parseDependencyTables(builtinDependenciesTable, "builtin_dependencies")
 def supportedDevPacks = optionalStringArray(
     platformTable,
@@ -563,6 +720,8 @@ ext.templateTables = [
     repositories: repositoriesTable,
     dependencies: dependenciesTable,
     embeddedProjects: embeddedProjectsTable,
+    metadata : metadataTable,
+    modRelations: modRelationsTable,
     publish  : publishTable,
     naming   : namingTable,
     overrides: overridesTable
@@ -575,6 +734,8 @@ ext.templateRepositories = [
 ]
 ext.enabledDevPacks = enabledDevPacks
 ext.templateEmbeddedProjects = templateEmbeddedProjectSpecs
+ext.templateMetadata = templateMetadataSpec
+ext.templateModRelations = templateModRelationSpecs
 
 def modId = expectStringFromTable(modTable, "mod_id", "mod")
 def modName = expectStringFromTable(modTable, "mod_name", "mod")
@@ -692,8 +853,7 @@ ext.templatePlatform = [
 ext.templateLocal = [
     mcUser           : optionalStringFromTable(localRunTable, "mc_user"),
     formalVersion    : optionalBooleanFromTable(localBuildTable, "formal_version", false),
-    referenceProjects: localCompatEntries.get("reference_projects", ""),
-    compatEntries    : localCompatEntries
+    referenceProjects: ""
 ]
 
 ext.resolvedFeatureVersions = [
@@ -799,10 +959,25 @@ ext.templateFeatureDependencies = renderDependencySpecs(featureSupportSpecs, "fe
 ext.templateDependencies = renderDependencySpecs(templateDependencySpecs, "dependencies")
 ext.templateDevPackDependencies = renderDependencySpecs(devPackDependencySpecs, "dev_packs")
 
+def serializePlatformRelationList = { String bucketKey, List<Map<String, String>> platformSpecs ->
+    templateModRelationSpecs
+        .findAll { it.bucket == bucketKey }
+        .collect { relation ->
+            platformSpecs.collect { platformSpec ->
+                def value = relation[platformSpec.key] as String
+                value == null || value.isBlank() ? null : "@${platformSpec.prefix}:${value}"
+            }
+        }
+        .flatten()
+        .findAll { it != null }
+        .join(";")
+}
+
 def compatConfig = new ConfigObject()
 compatConfig.putAll([
     mod_version         : finalVersion,
     formal_version      : project.ext.templateLocal.formalVersion.toString(),
+    enable_annotation   : "true",
     registrate_version  : resolvedFeatureVersions.registrate,
     citadel_version      : "",
     l2_library_version  : "",
@@ -838,13 +1013,11 @@ compatConfig.putAll([
     modrinth_token      : template.modrinthToken,
     curseforge_token    : template.curseforgeToken,
     release_type        : template.releaseType,
-    required_mods       : "",
-    optional_mods       : "",
-    incompatible_mods   : "",
-    embedded_mods       : ""
+    required_mods       : serializePlatformRelationList("required", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),
+    optional_mods       : serializePlatformRelationList("optional", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),
+    incompatible_mods   : serializePlatformRelationList("incompatible", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),
+    embedded_mods       : serializePlatformRelationList("embedded", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]])
 ])
-compatConfig.putAll(projectCompatEntries)
-compatConfig.putAll(project.ext.templateLocal.compatEntries)
 
 project.ext.configFile = projectFile
 project.ext.config = compatConfig
