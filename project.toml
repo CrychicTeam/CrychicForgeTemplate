@@ -1,5 +1,5 @@
 schema_version = 1
-template_version = "1.19.2-template-1.1.0"
+template_version = "1.18.2-template-1.0.0"
 
 [mod]
 mod_id = "example"
@@ -40,10 +40,10 @@ kubejs = false
 [overrides]
 # Only override curated versions when an enabled built-in feature needs a
 # different version than the template default.
-# jei_version = "11.8.1.1034"
-# curios_version = "1.19.2-5.1.6.4"
-# geckolib_version = "3.1.40"
-# player_animator_version = "1.0.2"
+# jei_version = "10.2.1.1009"
+# curios_version = "1.18.2-5.0.9.2"
+# geckolib_version = "3.0.57"
+# player_animator_version = "1.0.2+1.18"
 # bendylib_version = "4.0.0"
 # mixin_extras_version = "0.2.2"
 
@@ -71,16 +71,16 @@ jitpack = "https://jitpack.io"
 # consumers. deobf_* buckets are for mod dependencies that need remapping.
 # Example:
 # [dependencies.deobf_api]
-# registrate_api = "com.tterrag.registrate:Registrate:MC1.19-1.1.5"
+# registrate_api = "com.tterrag.registrate:Registrate:MC1.18.2-1.1.3"
 #
 # [dependencies.deobf_compile_only]
-# kubejs = "dev.latvian.mods:kubejs-forge:1902.6.2-build.74"
+# kubejs = "curse.maven:kubejs-238086:4377177"
 #
 # [dependencies.deobf_implementation]
-# architectury = { notation = "dev.architectury:architectury-forge:6.5.90", transitive = false }
+# architectury = { notation = "dev.architectury:architectury-forge:4.12.94", transitive = false }
 #
 # [dependencies.deobf_compile_only_api]
-# curios_api = "top.theillusivec4.curios:curios-forge:1.19.2-5.1.6.4"
+# curios_api = "top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2"
 #
 # [dependencies.jarjar]
 # helper = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
@@ -91,21 +91,21 @@ jitpack = "https://jitpack.io"
 #
 # Base API surface example:
 # [dependencies.deobf_api]
-# registrate = "com.tterrag.registrate:Registrate:MC1.19-1.1.5"
+# registrate = "com.tterrag.registrate:Registrate:MC1.18.2-1.1.3"
 #
 # Common feature-style examples:
 # [dependencies.deobf_compile_only]
-# jei_common_api = "mezz.jei:jei-1.19.2-common-api:11.8.1.1034"
-# jei_forge_api = "mezz.jei:jei-1.19.2-forge-api:11.8.1.1034"
-# curios = "top.theillusivec4.curios:curios-forge:1.19.2-5.1.6.4"
+# jei_common_api = "mezz.jei:jei-1.18.2-common-api:10.2.1.1009"
+# jei_forge_api = "mezz.jei:jei-1.18.2-forge-api:10.2.1.1009"
+# curios = "top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2"
 #
 # [dependencies.deobf_runtime_only]
-# jei_runtime = "mezz.jei:jei-1.19.2-forge:11.8.1.1034"
+# jei_runtime = "mezz.jei:jei-1.18.2-forge:10.2.1.1009"
 # bendylib = "io.github.kosmx.bendy-lib:bendy-lib-forge:4.0.0"
 #
 # [dependencies.deobf_implementation]
-# geckolib = "software.bernie.geckolib:geckolib-forge-1.19:3.1.40"
-# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:1.0.2"
+# geckolib = "software.bernie.geckolib:geckolib-forge-1.18:3.0.57"
+# player_animator = "dev.kosmx.player-anim:player-animation-lib-forge:1.0.2+1.18"
 # mixinextras_forge = "com.github.llamalad7.mixinextras:mixinextras-forge:0.2.2"
 #
 # [dependencies.compile_only]
@@ -116,11 +116,11 @@ jitpack = "https://jitpack.io"
 #
 # Typical extra ecosystem examples:
 # [dependencies.deobf_compile_only]
-# kubejs = "dev.latvian.mods:kubejs-forge:1902.6.2-build.74"
-# rhino = "dev.latvian.mods:rhino-forge:1902.2.3-build.284"
+# kubejs = "curse.maven:kubejs-238086:4377177"
+# rhino = "curse.maven:rhino-416294:4069880"
 #
 # [dependencies.deobf_implementation]
-# architectury = { notation = "dev.architectury:architectury-forge:6.5.90", transitive = false }
+# architectury = { notation = "dev.architectury:architectury-forge:4.12.94", transitive = false }
 
 # Built-in local dev packs can be toggled in [dev_packs].
 # basic: JEI + Jade
@@ -136,12 +136,12 @@ jitpack = "https://jitpack.io"
 # Keep these minimal and migrate them away when the project no longer needs
 # the old keys.
 # reference_projects = false
-# kubejs_version = "1902.6.2-build.74"
-# rhino_version = "1902.2.3-build.284"
+# kubejs_version = "1802.5.5-build.569"
+# rhino_version = "1802.2.1-build.255"
 
 [publish]
 # Leave blank for local-only publishing. MAVEN_URL can override this in CI.
-maven_url = "https://maven.mihono.cn/repository/pickaid1192/"
+maven_url = "https://maven.mihono.cn/repository/pickaid1182/"
 # Local machine settings should normally go in project.local.toml instead:
 # - [run].mc_user
 # - [publish].maven_user / maven_password / modrinth_token / curseforge_token

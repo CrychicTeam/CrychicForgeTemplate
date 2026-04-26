@@ -518,7 +518,7 @@ def forgeVersion = optionalStringFromTable(platformTable, "forge_version", loade
 def forgeRange = optionalStringFromTable(platformTable, "forge_range", loader == "forge" ? loaderVersionRange : "")
 def javaVersion = expectStringFromTable(platformTable, "java", "platform")
 def mixinExtrasGroup = optionalStringFromTable(platformTable, "mixin_extras_group", loader == "neoforge" ? "io.github.llamalad7" : "com.github.llamalad7.mixinextras")
-def parchmentMappings = optionalStringFromTable(platformTable, "parchment_mappings", "2022.11.27")
+def parchmentMappings = optionalStringFromTable(platformTable, "parchment_mappings", "2022.11.06")
 def gameTestNamespaceProperty = optionalStringFromTable(platformTable, "game_test_namespace_property", "forge.enabledGameTestNamespaces")
 
 def renderJarFormat = { String format, Map<String, String> tokens ->

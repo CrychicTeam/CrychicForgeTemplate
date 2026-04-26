@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — Forge 1.19.2 模组模板
+# PickAIDForgeTemplate — Forge 1.18.2 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-1.19.2` 只服务于 `Forge 1.19.2`。这条分支已经按 `1.19.2` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版，不再混着 `1.20.1` 的旧值。
+`PickAIDForgeTemplate-1.18.2` 只服务于 `Forge 1.18.2`。这条分支已经按 `1.18.2` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版，不再混着 `1.20.1` 的旧值。
 
 这支模板的目标很直接：
 
@@ -19,14 +19,14 @@
 
 也就是说：
 
-- 这条分支只负责 `Forge 1.19.2`
+- 这条分支只负责 `Forge 1.18.2`
 - 不接受 `project.toml [platform]`
 - 不接受 `-PtemplateProfile=...`
 - `build.txt` 和 `template.toml` 都已经废弃
 
 ## 这条分支当前预置了什么
 
-- `Forge 1.19.2` + `ModDevGradle LegacyForge`
+- `Forge 1.18.2` + `ModDevGradle LegacyForge`
 - `project.toml` 单入口配置
 - 内置 feature 开关：`jei`、`curios`、`geckolib`、`player_animator`、`mixin_extras`
 - 内置本地调试包：`basic`、`appleskin`、`combat`、`curios`、`spell`、`kubejs`
@@ -41,7 +41,7 @@
 
 ```toml
 schema_version = 1
-template_version = "1.19.2-template-1.1.0"
+template_version = "1.18.2-template-1.0.0"
 
 [mod]
 mod_id = "yourmod"
@@ -121,7 +121,7 @@ version_suffix = "hotfix.1"
 - `spell`: Caelus + Iron's Spellbooks
 - `kubejs`: Architectury + Rhino + KubeJS 本地运行时
 
-`kubejs` 这组现在已经按 `1.19.2` 的实际版本重新校准，可以直接拿来做本地脚本测试。
+`kubejs` 这组现在已经按 `1.18.2` 的实际版本重新校准，可以直接拿来做本地脚本测试。
 
 ### `[repositories]` 和 `[dependencies.*]`
 
@@ -142,7 +142,7 @@ version_suffix = "hotfix.1"
 - `deobf_runtime_only`
 - `jarjar`
 
-`project.toml` 里已经给了 1.19.2 对应的示例坐标，直接取消注释再按需调整即可。
+`project.toml` 里已经给了 1.18.2 对应的示例坐标，直接取消注释再按需调整即可。
 
 ## 本机私有配置
 
@@ -152,7 +152,7 @@ version_suffix = "hotfix.1"
 - Maven 用户名和密码
 - Modrinth / CurseForge token
 
-可以从 [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate-1.19.2/project.local.toml.example) 复制。
+可以从 `project.local.toml.example` 复制。
 
 ## 发布
 

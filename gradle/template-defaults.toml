@@ -1,28 +1,28 @@
 # Keep this branch-specific defaults file intentionally curated. Project-level
 # extras belong in project.toml via [repositories] and [dependencies.*].
-defaults_revision = "forge-1.19.2-r1"
+defaults_revision = "forge-1.18.2-r1"
 
 [platform]
 loader = "forge"
 publish_loader = "Forge"
-mc_version = "1.19.2"
-mc_range = "[1.19.2,1.20)"
-loader_version = "43.5.2"
-loader_version_range = "[43,)"
-forge_version = "43.5.2"
-forge_range = "[43,)"
+mc_version = "1.18.2"
+mc_range = "[1.18.2,1.19)"
+loader_version = "40.3.12"
+loader_version_range = "[40,)"
+forge_version = "40.3.12"
+forge_range = "[40,)"
 java = "17"
 mixin_extras_group = "com.github.llamalad7.mixinextras"
-parchment_mappings = "2022.11.27"
+parchment_mappings = "2022.11.06"
 game_test_namespace_property = "forge.enabledGameTestNamespaces"
 supported_dev_packs = ["basic", "appleskin", "combat", "curios", "spell", "kubejs"]
 
 [versions]
-registrate = "MC1.19-1.1.5"
-jei = "11.8.1.1034"
-curios = "1.19.2-5.1.6.4"
-geckolib = "3.1.40"
-player_animator = "1.0.2"
+registrate = "MC1.18.2-1.1.3"
+jei = "10.2.1.1009"
+curios = "1.18.2-5.0.9.2"
+geckolib = "3.0.57"
+player_animator = "1.0.2+1.18"
 bendylib = "4.0.0"
 mixin_extras = "0.2.2"
 
@@ -89,7 +89,7 @@ jei_runtime = "mezz.jei:jei-{mc_version}-{jei_loader}:{jei}"
 curios = "top.theillusivec4.curios:curios-{curios_loader}:{curios}"
 
 [feature_support.geckolib.dependencies.deobf_implementation]
-geckolib = "software.bernie.geckolib:geckolib-forge-1.19:{geckolib}"
+geckolib = "software.bernie.geckolib:geckolib-forge-1.18:{geckolib}"
 
 [feature_support.geckolib.dependencies.implementation]
 mclib = "com.eliotlash.mclib:mclib:20"
@@ -116,28 +116,28 @@ mixinextras_loader = "{mixin_extras_group}:mixinextras-{mixin_extras_loader}:{mi
 description = "Basic local HUD and inspection helpers."
 
 [dev_packs.basic.dependencies.deobf_runtime_only]
-jei = "mezz.jei:jei-1.19.2-forge:11.8.1.1034"
-jade = "curse.maven:jade-324717:4914105"
+jei = "mezz.jei:jei-1.18.2-forge:10.2.1.1009"
+jade = "curse.maven:jade-324717:5079263"
 
 [dev_packs.appleskin]
 description = "AppleSkin as a standalone local HUD helper."
 
 [dev_packs.appleskin.dependencies.deobf_runtime_only]
-appleskin = "curse.maven:appleskin-248787:3872808"
+appleskin = "curse.maven:appleskin-248787:4770822"
 
 [dev_packs.combat]
 description = "Combat-debug helpers: target dummy and common attribute fixes."
 
 [dev_packs.combat.dependencies.deobf_runtime_only]
-target_dummy = "curse.maven:mmmmmmmmmmmm-225738:4410143"
-attribute_fix = "curse.maven:attributefix-280510:4635476"
-max_health_fix = "curse.maven:max-health-fix-492246:4658481"
+target_dummy = "curse.maven:mmmmmmmmmmmm-225738:3820503"
+attribute_fix = "curse.maven:attributefix-280510:5718025"
+max_health_fix = "curse.maven:max-health-fix-492246:4609586"
 
 [dev_packs.curios]
 description = "Curios local runtime for slot and accessory integration testing."
 
 [dev_packs.curios.dependencies.deobf_runtime_only]
-curios = "top.theillusivec4.curios:curios-forge:1.19.2-5.1.6.4"
+curios = "top.theillusivec4.curios:curios-forge:1.18.2-5.0.9.2"
 
 [dev_packs.spell]
 description = "Spell-system smoke test helpers."
@@ -146,13 +146,13 @@ description = "Spell-system smoke test helpers."
 redspace = "https://code.redspace.io/releases"
 
 [dev_packs.spell.dependencies.deobf_runtime_only]
-caelus = "curse.maven:caelus-308989:3929284"
-irons_spellbooks = "io.redspace.ironsspellbooks:irons_spellbooks:1.19.2-3.4.0"
+caelus = "curse.maven:caelus-308989:3650485"
+irons_spellbooks = "io.redspace.ironsspellbooks:irons_spellbooks:1.18.2-1.1.4.5"
 
 [dev_packs.kubejs]
 description = "KubeJS local runtime for script-driven smoke tests."
 
 [dev_packs.kubejs.dependencies.deobf_runtime_only]
-architectury = "dev.architectury:architectury-forge:6.5.90"
-rhino = "dev.latvian.mods:rhino-forge:1902.2.3-build.284"
-kubejs = "dev.latvian.mods:kubejs-forge:1902.6.2-build.74"
+architectury = "dev.architectury:architectury-forge:4.12.94"
+rhino = "curse.maven:rhino-416294:4069880"
+kubejs = "curse.maven:kubejs-238086:4377177"
