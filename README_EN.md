@@ -11,6 +11,7 @@ PickAIDForgeTemplate is a Minecraft Forge mod development template driven by `pr
 - A buildable Forge project skeleton
 - TOML-driven project configuration via `project.toml`
 - Curated feature switches for common mod ecosystems (JEI, Curios, GeckoLib, Player Animator, MixinExtras)
+- Java-first language support with optional Kotlin sources
 - Local development helper packs (JEI + Jade, AppleSkin, combat debugging, etc.)
 - Maven publication with `sources`, `javadoc`, and `runtime` jars
 - Modrinth and CurseForge upload tasks with environment-variable token injection
@@ -114,8 +115,10 @@ For most projects, you usually only need one of these:
 - **I just want to turn the template into my own mod**: edit `[mod]` and `[naming]`
 - **I only want local helper mods for testing recipes, HUD, or combat numbers**: edit `[dev_packs]`
 - **I need to import another mod's API in source code**: use `[features]` first, or declare it manually under `[dependencies.deobf_*]`
+- **I want to write part of the mod in Kotlin**: enable `[languages].kotlin`
 - **I just want a normal Java library**: use the base buckets such as `[dependencies.implementation]`, `[dependencies.api]`, or `[dependencies.compile_only]`
 - **I want a dependency bundled into the final jar**: use `[dependencies.jarjar]`
+- **I want to ship prebuilt Rust/C/C++ JNI/JNA binaries**: declare `[native_libraries.*]` and place files under `native-libs/`
 - **I want dependency / incompatibility / optional integration metadata written into `mods.toml`**: edit `[mod_relations.*]`
 - **I want Maven / Modrinth / CurseForge publishing**: edit `[publish]`
 
@@ -145,6 +148,17 @@ These are the built-in switches for integrations the template supports directly:
 - `mixin_extras`
 
 Use `true` or `false`.
+
+### `[languages]`
+
+Java is the default path and is always enabled. Kotlin is optional; when enabled, sources in `src/main/kotlin` compile alongside `src/main/java`:
+
+```toml
+[languages]
+kotlin = true
+```
+
+Recommended priority is Java > Kotlin > native. Use Java for the normal Forge surface, Kotlin when its syntax or libraries are useful, and native libraries only for advanced prebuilt JNI/JNA integrations.
 
 ### `[overrides]`
 
@@ -253,7 +267,7 @@ Simple entries use string shorthand:
 registrate = "com.tterrag.registrate:Registrate:MC1.20-1.3.2"
 
 [dependencies.deobf_compile_only]
-kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.5-build.16"
 rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
 ```
 
@@ -303,6 +317,229 @@ internal = ":internal"
 
 - `[embedded_projects.api]`: bundle the subproject and let downstream builds compile against it through the main published artifact.
 - `[embedded_projects.implementation]`: bundle the subproject but keep it internal to the main mod.
+
+### `[native_libraries.*]`
+
+This advanced section packages prebuilt JNI/JNA binaries. It does not compile Rust, C, or C++ source code.
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+Files must match the generated platform file names:
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+The build packages those files into the jar and generates a Java `NativeLibraries` helper. At runtime, call `load("physics")` from `${group}.${mod_id}.runtime.NativeLibraries`; for JNA, use the returned `Path` when binding the library.
+
+#### JNI: call your own native methods from Java or Kotlin
+
+Assume this project config:
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+The generated helper package is `com.example.physicsmod.runtime.NativeLibraries`. Load the library before declaring or calling native methods:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin can call that Java wrapper directly:
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+The C function name must match the Java package, class, and method:
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+Place compiled outputs in the template's native layout. macOS aarch64 example:
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 example:
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows should output `native-libs/physics/windows-x86_64/pickaid_physics.dll`.
+
+#### JNA: bind an existing C ABI library
+
+Use JNA when the native library already exports plain C functions and you do not want JNI glue code. Bundle JNA first:
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java binding example:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin can call the same JNA binding:
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+The C library only needs to export a plain function:
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+Rule of thumb: use JNI for performance-sensitive bridge code or JVM interaction; use JNA for existing C ABI libraries.
+
+### Usage combinations
+
+#### Java only
+
+No extra setup is required. Keep:
+
+```toml
+[languages]
+kotlin = false
+```
+
+Put source in `src/main/java`; this is the normal Java/Forge path.
+
+#### Kotlin only
+
+Enable Kotlin and place mod code in `src/main/kotlin`. The Java toolchain still stays enabled because Forge, annotation processing, and generated sources use Java infrastructure.
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + Kotlin
+
+Enable Kotlin and use both `src/main/java` and `src/main/kotlin`. Java can call Kotlin JVM APIs such as `@JvmStatic` members, and Kotlin can call Java classes directly.
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + native
+
+Keep Kotlin off and declare the native library. Java code calls the generated helper:
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+#### Java + Kotlin + native
+
+Enable Kotlin and native support together. Java and Kotlin can both call the generated `NativeLibraries` helper:
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
 
 ### `[metadata]`
 
@@ -546,12 +783,14 @@ architectury = "https://maven.architectury.dev"
 latvian = "https://maven.latvian.dev/releases"
 
 [dependencies.deobf_compile_only]
-kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.5-build.16"
 rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
 
 [dependencies.deobf_implementation]
 architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transitive = false }
 ```
+
+For Forge `1.20.1`, pin KubeJS Forge to `2001.6.5-build.16`; do not chase newer Maven-published versions.
 
 ### Something still tries to use `build.txt` or `template.toml`
 

@@ -1,4 +1,51 @@
 buildscript {
+    def readTemplateDefaultVersion = { String key, String fallback ->
+        def source = new File(rootDir, "gradle/template-defaults.toml")
+        if (!source.isFile()) {
+            return fallback
+        }
+
+        def version = fallback
+        def inVersions = false
+        source.eachLine { line ->
+            def stripped = line.replaceFirst(/#.*/, "").trim()
+            if (stripped ==~ /\[[^\]]+\]/) {
+                inVersions = stripped == "[versions]"
+                return
+            }
+            if (inVersions) {
+                def matcher = stripped =~ /^${java.util.regex.Pattern.quote(key)}\s*=\s*"([^"]+)"/
+                if (matcher.find()) {
+                    version = matcher.group(1)
+                }
+            }
+        }
+        version
+    }
+
+    def isTemplateLanguageEnabled = { String language ->
+        def source = new File(rootDir, "project.toml")
+        if (!source.isFile()) {
+            return false
+        }
+
+        def enabled = false
+        def inLanguages = false
+        source.eachLine { line ->
+            def stripped = line.replaceFirst(/#.*/, "").trim()
+            if (stripped ==~ /\[[^\]]+\]/) {
+                inLanguages = stripped == "[languages]"
+                return
+            }
+            if (inLanguages && stripped ==~ /^${java.util.regex.Pattern.quote(language)}\s*=\s*true\b/) {
+                enabled = true
+            }
+        }
+        enabled
+    }
+
+    def kotlinPluginVersion = readTemplateDefaultVersion("kotlin", "2.1.20")
+
     repositories {
         maven { url = 'https://maven.minecraftforge.net' }
         maven { url "https://plugins.gradle.org/m2/" }
@@ -7,6 +54,9 @@ buildscript {
     dependencies {
         classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.+"
         classpath "org.tomlj:tomlj:1.1.1"
+        if (isTemplateLanguageEnabled("kotlin")) {
+            classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinPluginVersion}"
+        }
     }
 }
 
@@ -32,6 +82,8 @@ def templateFeatureDependencies = project.ext.templateFeatureDependencies
 def templateDependencies = project.ext.templateDependencies
 def templateDevPackDependencies = project.ext.templateDevPackDependencies
 def templateEmbeddedProjects = project.ext.templateEmbeddedProjects
+def templateLanguages = project.ext.templateLanguages
+def templateNativeLibraries = project.ext.templateNativeLibraries
 def templateMetadata = project.ext.templateMetadata
 def templateModRelations = project.ext.templateModRelations
 def resolvedFeatureVersions = project.ext.resolvedFeatureVersions
@@ -240,6 +292,17 @@ def addJarJarDependency = { String notation, String range, String preferredVersi
         prefer preferredVersion
     }
     project.dependencies.add("jarJar", dependency)
+}
+
+ext.createConfiguredDependency = createConfiguredDependency
+ext.addJarJarDependency = addJarJarDependency
+
+if (templateLanguages.kotlin) {
+    apply from: "gradle/language-kotlin.gradle"
+}
+
+if (!templateNativeLibraries.isEmpty()) {
+    apply from: "gradle/native-libraries.gradle"
 }
 
 def publishedPomDependencies = []

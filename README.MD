@@ -12,16 +12,18 @@ PickAIDForgeTemplate 是一个以 `project.toml` 为单一配置入口的 Minecr
 - [前置条件](#前置条件)
 - [快速开始](#快速开始)
 - [配置参考](#配置参考)
-  - [[mod] — 模组身份](#mod--模组身份)
-  - [[features] — 生态集成开关](#features--生态集成开关)
-  - [[overrides] — 版本覆盖](#overrides--版本覆盖)
-  - [[dev_packs] — 本地调试辅助包](#dev_packs--本地调试辅助包)
-  - [[repositories] — 额外 Maven 仓库](#repositories--额外-maven-仓库)
-  - [[dependencies.*] — 额外依赖](#dependencies--额外依赖)
-  - [[metadata] — 模组展示信息](#metadata--模组展示信息)
-  - [[mod_relations.*] — 模组关系声明](#mod_relations--模组关系声明)
-  - [[publish] — 发布配置](#publish--发布配置)
-  - [[naming] — 产物命名](#naming--产物命名)
+    - [[mod] — 模组身份](#mod--模组身份)
+    - [[features] — 生态集成开关](#features--生态集成开关)
+    - [[languages] — Java/Kotlin 开关](#languages--javakotlin-开关)
+    - [[overrides] — 版本覆盖](#overrides--版本覆盖)
+    - [[dev_packs] — 本地调试辅助包](#dev_packs--本地调试辅助包)
+    - [[repositories] — 额外 Maven 仓库](#repositories--额外-maven-仓库)
+    - [[dependencies.\*] — 额外依赖](#dependencies--额外依赖)
+    - [[native_libraries.\*] — 预编译 Native 库](#native_libraries--预编译-native-库)
+    - [[metadata] — 模组展示信息](#metadata--模组展示信息)
+    - [[mod_relations.\*] — 模组关系声明](#mod_relations--模组关系声明)
+    - [[publish] — 发布配置](#publish--发布配置)
+    - [[naming] — 产物命名](#naming--产物命名)
 - [目录结构](#目录结构)
 - [发布指南](#发布指南)
 - [产物说明](#产物说明)
@@ -37,6 +39,7 @@ PickAIDForgeTemplate 是一个以 `project.toml` 为单一配置入口的 Minecr
 - **Forge 项目骨架**：可直接 `./gradlew build` 通过
 - **`project.toml` 配置驱动**：模组信息、依赖、发布全部走 TOML
 - **生态集成开关**：JEI、Curios、GeckoLib、Player Animator、MixinExtras 一键启停
+- **语言支持**：Java 默认启用，Kotlin 可选启用并与 Java 混写
 - **本地开发辅助包**：预配好的开发环境模组组合（JEI + Jade、AppleSkin、战斗调试等）
 - **Maven 发布**：输出 development、runtime、sources、javadoc 四个 jar
 - **Modrinth / CurseForge 上传**：内置上传任务，token 通过环境变量注入
@@ -115,6 +118,7 @@ cp project.local.toml.example project.local.toml
 ```
 
 适合写入的内容：
+
 - `[run].mc_user`：本地调试用的 Minecraft 用户名和 UUID
 - `[publish].maven_user` / `maven_password`：本机 Maven 发布凭证
 - `[publish].modrinth_token` / `curseforge_token`：平台上传 token
@@ -126,8 +130,10 @@ cp project.local.toml.example project.local.toml
 - **我只想把模板改成自己的模组**：改 `[mod]` 和 `[naming]`
 - **我只想本地跑起来看配方、HUD、战斗数据**：改 `[dev_packs]`
 - **我需要在源码里直接 import 某个模组 API**：优先改 `[features]`，或在 `[dependencies.deobf_*]` 里手动声明
+- **我想用 Kotlin 写一部分代码**：改 `[languages].kotlin`
 - **我只是想加一个普通 Java 库**：改 `[dependencies.implementation]`、`[dependencies.api]`、`[dependencies.compile_only]` 这些基础桶
 - **我想把额外库一起打进最终 jar**：改 `[dependencies.jarjar]`
+- **我想带上 Rust/C/C++ 编译好的 JNI/JNA 库**：改 `[native_libraries.*]`，并把二进制放进 `native-libs/`
 - **我想声明依赖/冲突/可选联动并写进 `mods.toml`**：改 `[mod_relations.*]`
 - **我想发到 Maven、Modrinth、CurseForge**：改 `[publish]`
 
@@ -139,30 +145,30 @@ cp project.local.toml.example project.local.toml
 
 每个新项目最先修改的块，定义模组的基本身份信息。
 
-| 字段 | 说明 |
-|---|---|
-| `mod_id` | Forge 模组 ID，建议全小写 |
-| `mod_name` | 面向玩家展示的名称 |
-| `version` | 基础版本号，遵循 SemVer |
-| `version_suffix` | 可选后缀，如 `beta.2`、`hotfix.1` |
-| `group` | Maven group，对应 Java 包名 |
-| `authors` | 作者列表，不能为空 |
-| `license` | 许可证标识（写入 `mods.toml`） |
-| `description` | 模组描述（写入 `mods.toml`） |
-| `credits` | 致谢信息（可选） |
-| `issue_tracker_url` | Issue 跟踪地址（可选） |
+| 字段                | 说明                              |
+| ------------------- | --------------------------------- |
+| `mod_id`            | Forge 模组 ID，建议全小写         |
+| `mod_name`          | 面向玩家展示的名称                |
+| `version`           | 基础版本号，遵循 SemVer           |
+| `version_suffix`    | 可选后缀，如 `beta.2`、`hotfix.1` |
+| `group`             | Maven group，对应 Java 包名       |
+| `authors`           | 作者列表，不能为空                |
+| `license`           | 许可证标识（写入 `mods.toml`）    |
+| `description`       | 模组描述（写入 `mods.toml`）      |
+| `credits`           | 致谢信息（可选）                  |
+| `issue_tracker_url` | Issue 跟踪地址（可选）            |
 
 ### `[features]` — 生态集成开关
 
 模板内置的常见模组生态集成。开启后，模板会自动配置对应的编译依赖、Mixin 配置和运行时依赖。
 
-| 开关 | 对应集成 |
-|---|---|
-| `jei` | Just Enough Items API |
-| `curios` | Curios API |
-| `geckolib` | GeckoLib 动画引擎 |
+| 开关              | 对应集成               |
+| ----------------- | ---------------------- |
+| `jei`             | Just Enough Items API  |
+| `curios`          | Curios API             |
+| `geckolib`        | GeckoLib 动画引擎      |
 | `player_animator` | Player Animator 动画库 |
-| `mixin_extras` | MixinExtras 增强 Mixin |
+| `mixin_extras`    | MixinExtras 增强 Mixin |
 
 ```toml
 [features]
@@ -175,18 +181,29 @@ mixin_extras = true
 
 不需要的集成保持 `false` 即可，保持最小依赖面。
 
+### `[languages]` — Java/Kotlin 开关
+
+Java 是默认路径，始终启用。Kotlin 是可选增强，开启后可以把源码放在 `src/main/kotlin`，并继续和 `src/main/java` 混写：
+
+```toml
+[languages]
+kotlin = true
+```
+
+优先级建议保持为：Java > Kotlin > native。也就是说，普通 Forge API 和大多数依赖优先走 Java；需要 Kotlin 语法或库生态时再开启 Kotlin；Rust/C/C++ 这类 native 库只作为高级场景使用。
+
 ### `[overrides]` — 版本覆盖
 
 当你使用了某个 feature 但需要不同于模板默认的版本时使用。**大多数项目不需要修改此块。**
 
-| 键 | 对应 feature |
-|---|---|
-| `jei_version` | `jei` |
-| `curios_version` | `curios` |
-| `geckolib_version` | `geckolib` |
+| 键                        | 对应 feature      |
+| ------------------------- | ----------------- |
+| `jei_version`             | `jei`             |
+| `curios_version`          | `curios`          |
+| `geckolib_version`        | `geckolib`        |
 | `player_animator_version` | `player_animator` |
-| `bendylib_version` | `player_animator` |
-| `mixin_extras_version` | `mixin_extras` |
+| `bendylib_version`        | `player_animator` |
+| `mixin_extras_version`    | `mixin_extras`    |
 
 仅在对应 feature 启用时生效。没有明确的版本需求时保持留空即可。
 
@@ -194,13 +211,13 @@ mixin_extras = true
 
 影响的是**本地开发运行环境**，不定义正式发布的 API 依赖面。目的是让本地调试更顺手——查配方、看 HUD、测战斗平衡等。
 
-| 包名 | 包含内容 | 用途 |
-|---|---|---|
-| `basic` | JEI + Jade | 配方查看、方块/实体信息 |
-| `appleskin` | AppleSkin | 饥饿值和饱和度 HUD |
-| `combat` | Target Dummy + AttributeFix + Max Health Fix | 战斗数值调试 |
-| `curios` | Curios | 饰品槽位本地测试 |
-| `spell` | Caelus + Iron's Spellbooks | 法术/属性烟雾测试 |
+| 包名        | 包含内容                                     | 用途                    |
+| ----------- | -------------------------------------------- | ----------------------- |
+| `basic`     | JEI + Jade                                   | 配方查看、方块/实体信息 |
+| `appleskin` | AppleSkin                                    | 饥饿值和饱和度 HUD      |
+| `combat`    | Target Dummy + AttributeFix + Max Health Fix | 战斗数值调试            |
+| `curios`    | Curios                                       | 饰品槽位本地测试        |
+| `spell`     | Caelus + Iron's Spellbooks                   | 法术/属性烟雾测试       |
 
 ```toml
 [dev_packs]
@@ -209,6 +226,7 @@ combat = false
 ```
 
 **注意区分使用场景**：
+
 - `dev_packs` → 只为本地运行时带上辅助模组，不影响编译
 - `features` → 同时配置编译依赖和运行时依赖，可在源码中 import 对应 API
 - `[dependencies.*]` → 手动声明任意额外依赖
@@ -243,34 +261,34 @@ redspace = { url = "https://code.redspace.io/releases", name = "Redspace", group
 
 **基础桶（用于普通 Java 库）：**
 
-| 桶名 | 作用 |
-|---|---|
-| `api` | 向下游消费者公开 |
-| `implementation` | 仅项目内部使用 |
-| `compile_only` | 仅编译时需要 |
-| `compile_only_api` | 编译时需要，且向下游公开 |
-| `runtime_only` | 仅运行时需要 |
-| `annotation_processor` | 注解处理器 |
-| `test_implementation` | 仅测试编译时 |
-| `test_runtime_only` | 仅测试运行时 |
+| 桶名                   | 作用                     |
+| ---------------------- | ------------------------ |
+| `api`                  | 向下游消费者公开         |
+| `implementation`       | 仅项目内部使用           |
+| `compile_only`         | 仅编译时需要             |
+| `compile_only_api`     | 编译时需要，且向下游公开 |
+| `runtime_only`         | 仅运行时需要             |
+| `annotation_processor` | 注解处理器               |
+| `test_implementation`  | 仅测试编译时             |
+| `test_runtime_only`    | 仅测试运行时             |
 
 **deobf 桶（用于需要反混淆的 Mod 依赖）：**
 
-| 桶名 | 作用 |
-|---|---|
-| `deobf_api` | 向下游公开的 Mod API 依赖 |
-| `deobf_implementation` | 内部使用的 Mod 依赖 |
-| `deobf_compile_only` | 仅编译时可见的 Mod 依赖 |
+| 桶名                     | 作用                             |
+| ------------------------ | -------------------------------- |
+| `deobf_api`              | 向下游公开的 Mod API 依赖        |
+| `deobf_implementation`   | 内部使用的 Mod 依赖              |
+| `deobf_compile_only`     | 仅编译时可见的 Mod 依赖          |
 | `deobf_compile_only_api` | 编译时需要且向下游公开的 Mod API |
-| `deobf_runtime_only` | 仅本地运行时带上的 Mod 依赖 |
+| `deobf_runtime_only`     | 仅本地运行时带上的 Mod 依赖      |
 
 **特殊桶：**
 
-| 桶名 | 作用 |
-|---|---|
-| `jarjar` | 将依赖打包进最终 jar |
-| `embedded_projects.api` | 嵌入 Gradle 子项目并向下游公开 |
-| `embedded_projects.implementation` | 嵌入 Gradle 子项目但不公开 |
+| 桶名                               | 作用                           |
+| ---------------------------------- | ------------------------------ |
+| `jarjar`                           | 将依赖打包进最终 jar           |
+| `embedded_projects.api`            | 嵌入 Gradle 子项目并向下游公开 |
+| `embedded_projects.implementation` | 嵌入 Gradle 子项目但不公开     |
 
 #### 基本写法
 
@@ -281,7 +299,7 @@ redspace = { url = "https://code.redspace.io/releases", name = "Redspace", group
 registrate = "com.tterrag.registrate:Registrate:MC1.20-1.3.2"
 
 [dependencies.deobf_compile_only]
-kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
+kubejs = "dev.latvian.mods:kubejs-forge:2001.6.5-build.16"
 ```
 
 需要额外参数时（如排除传递依赖），用 inline table：
@@ -294,6 +312,7 @@ architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transi
 #### `jarjar` 使用指南
 
 `jarjar` 控制"是否将外部库打包进最终 jar"。和 API 桶的职责不同：
+
 - `jarjar` → 决定**打包与否**
 - `api` / `compile_only_api` → 决定**向下游暴露与否**
 
@@ -315,19 +334,242 @@ helper_api = { notation = "com.example:helper-forge:1.0.0", range = "[1.0.0,)" }
 
 > 如果已经通过 `[features]` 开启了某项集成，不要在 `[dependencies.*]` 中再手动声明相同依赖，否则会产生重复。
 
+### `[native_libraries.*]` — 预编译 Native 库
+
+这是高级功能，用来打包已经编译好的 JNI/JNA 二进制，不负责从 Rust/C/C++ 源码构建。每个库声明一个子表：
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+文件布局必须和平台匹配：
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+构建时模板会把文件打进 jar，并生成 `NativeLibraries` Java helper。运行时可从 `${group}.${mod_id}.runtime.NativeLibraries` 调用 `load("physics")`；如果使用 JNA，也可以使用返回的 `Path` 交给 JNA 绑定。
+
+#### JNI：从 Java/Kotlin 调用自己写的 native 方法
+
+假设：
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+生成的 helper 包名是 `com.example.physicsmod.runtime.NativeLibraries`。Java 侧先加载库，再声明 `native` 方法：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin 代码可以直接调用这个 Java wrapper：
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+C 侧函数名必须匹配 Java 包名、类名和方法名：
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+编译输出文件必须放进模板约定的目录。macOS aarch64 示例：
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 示例：
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows 输出文件名应为 `native-libs/physics/windows-x86_64/pickaid_physics.dll`。
+
+#### JNA：绑定已有 C ABI 库
+
+如果 native 库已经导出了普通 C 函数，而你不想写 JNI glue code，可以使用 JNA。先把 JNA 打进 jar：
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java 绑定示例：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin 调用同一个 JNA binding：
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+对应的 C 库只需要导出普通函数：
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+选择建议：JNI 更适合性能敏感或需要 JVM 交互的桥接层；JNA 更适合直接接入已有 C ABI 库。
+
+### 使用组合
+
+#### Java only（默认）
+
+不需要额外配置，保持：
+
+```toml
+[languages]
+kotlin = false
+```
+
+代码放在 `src/main/java`，普通 Java/Forge 开发都走这条路径。
+
+#### Kotlin only（仍保留 Java 工具链）
+
+开启 Kotlin，把业务代码放在 `src/main/kotlin`。Gradle 仍然保留 Java source set，因为 Forge、注解处理和生成代码依旧依赖 Java 工具链。
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + Kotlin
+
+开启 Kotlin 后，`src/main/java` 和 `src/main/kotlin` 会一起编译。Java 可以调用 Kotlin 暴露的 `@JvmStatic` / 普通 JVM API，Kotlin 也可以直接调用 Java 类。
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + native
+
+保持 Kotlin 关闭，只声明 native 库。Java 代码中调用生成的 helper：
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+#### Java + Kotlin + native
+
+同时开启 Kotlin 和 native。Java/Kotlin 都可以调用生成的 `NativeLibraries` helper：
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
+
 ### `[metadata]` — 模组展示信息
 
 控制写入 `mods.toml` 的显示元数据。
 
-| 字段 | 说明 |
-|---|---|
-| `logo_file` | 模组 logo 文件名 |
-| `logo_blur` | logo 是否应用模糊效果 |
-| `show_as_resource_pack` | 是否显示为资源包 |
-| `show_as_data_pack` | 是否显示为数据包 |
-| `update_json_url` | 更新检查 JSON 地址 |
-| `display_url` | 模组主页链接 |
-| `display_test` | 兼容性检查策略，允许 `MATCH_VERSION`、`IGNORE_SERVER_VERSION`、`IGNORE_ALL_VERSION`、`NONE` |
+| 字段                    | 说明                                                                                        |
+| ----------------------- | ------------------------------------------------------------------------------------------- |
+| `logo_file`             | 模组 logo 文件名                                                                            |
+| `logo_blur`             | logo 是否应用模糊效果                                                                       |
+| `show_as_resource_pack` | 是否显示为资源包                                                                            |
+| `show_as_data_pack`     | 是否显示为数据包                                                                            |
+| `update_json_url`       | 更新检查 JSON 地址                                                                          |
+| `display_url`           | 模组主页链接                                                                                |
+| `display_test`          | 兼容性检查策略，允许 `MATCH_VERSION`、`IGNORE_SERVER_VERSION`、`IGNORE_ALL_VERSION`、`NONE` |
 
 ```toml
 [metadata]
@@ -342,13 +584,13 @@ display_test = "MATCH_VERSION"
 
 **支持的关系类型：**
 
-| 类型 | 写入 `mods.toml` | 影响上传平台 |
-|---|---|---|
-| `required` | 是 | 是 |
-| `optional` | 是 | 是 |
-| `incompatible` | 否 | 是 |
-| `embedded` | 否 | 是 |
-| `discouraged` | Forge 1.20.1 不支持 | — |
+| 类型           | 写入 `mods.toml`    | 影响上传平台 |
+| -------------- | ------------------- | ------------ |
+| `required`     | 是                  | 是           |
+| `optional`     | 是                  | 是           |
+| `incompatible` | 否                  | 是           |
+| `embedded`     | 否                  | 是           |
+| `discouraged`  | Forge 1.20.1 不支持 | —            |
 
 简单写法（仅声明版本范围）：
 
@@ -378,30 +620,31 @@ geckolib = { modrinth = "8BmcQJ2H", curseforge = "388172" }
 
 控制 Maven、Modrinth、CurseForge 的发布行为。
 
-| 字段 | 说明 |
-|---|---|
-| `maven_url` | 远程 Maven 仓库地址（留空则仅本地发布） |
-| `curseforge_project` | CurseForge 项目 ID（`0` 表示关闭） |
-| `modrinth_project` | Modrinth 项目 ID（空字符串表示关闭） |
-| `release_type` | `alpha`、`beta` 或 `release` |
+| 字段                 | 说明                                    |
+| -------------------- | --------------------------------------- |
+| `maven_url`          | 远程 Maven 仓库地址（留空则仅本地发布） |
+| `curseforge_project` | CurseForge 项目 ID（`0` 表示关闭）      |
+| `modrinth_project`   | Modrinth 项目 ID（空字符串表示关闭）    |
+| `release_type`       | `alpha`、`beta` 或 `release`            |
 
 **敏感信息的推荐管理方式（按优先级）：**
 
 1. **环境变量**（CI 和正式发布首选）：
-   - `MAVEN_URL` / `MAVEN_USER` / `MAVEN_PASSWORD`
-   - `MODRINTH_TOKEN` / `CURSEFORGE_TOKEN`
+    - `MAVEN_URL` / `MAVEN_USER` / `MAVEN_PASSWORD`
+    - `MODRINTH_TOKEN` / `CURSEFORGE_TOKEN`
 
 2. **`project.local.toml`**（本机开发，不进 git）：
-   ```toml
-   [publish]
-   maven_user = "your-user"
-   maven_password = "your-password"
-   modrinth_token = "mcr_xxxxxxxxxxxx"
-   curseforge_token = "xxxxxxxxxxxx"
 
-   [run]
-   mc_user = "DevPlayer,00000000000000000000000000000001"
-   ```
+    ```toml
+    [publish]
+    maven_user = "your-user"
+    maven_password = "your-password"
+    modrinth_token = "mcr_xxxxxxxxxxxx"
+    curseforge_token = "xxxxxxxxxxxx"
+
+    [run]
+    mc_user = "DevPlayer,00000000000000000000000000000001"
+    ```
 
 3. **`project.toml` 内联**（仅限临时使用，不要提交到仓库）
 
@@ -409,10 +652,10 @@ geckolib = { modrinth = "8BmcQJ2H", curseforge = "388172" }
 
 ### `[naming]` — 产物命名
 
-| 字段 | 说明 |
-|---|---|
-| `archive_name` | 产物基础名 |
-| `jar_format` | Jar 文件名格式模板 |
+| 字段           | 说明               |
+| -------------- | ------------------ |
+| `archive_name` | 产物基础名         |
+| `jar_format`   | Jar 文件名格式模板 |
 
 支持的 token：`{archive_name}`、`{mod_id}`、`{version}`、`{mc_version}`、`{loader}`。
 
@@ -480,12 +723,12 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 
 Maven 发布包含四类 jar：
 
-| 产物 | 用途 |
-|---|---|
-| 默认 jar（无 classifier） | 下游模组编译时依赖 |
-| `runtime` jar | 平台上传的打包产物，含所有运行时依赖 |
-| `sources` jar | 源码包 |
-| `javadoc` jar | Javadoc 文档包 |
+| 产物                      | 用途                                 |
+| ------------------------- | ------------------------------------ |
+| 默认 jar（无 classifier） | 下游模组编译时依赖                   |
+| `runtime` jar             | 平台上传的打包产物，含所有运行时依赖 |
+| `sources` jar             | 源码包                               |
+| `javadoc` jar             | Javadoc 文档包                       |
 
 ## 下游模组如何依赖
 
@@ -514,6 +757,7 @@ runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
 仓库默认使用 Gradle 官方 Wrapper 分发地址 (`https://services.gradle.org`)。
 
 在国内网络环境下，如果下载速度较慢，可以修改 `gradle/wrapper/gradle-wrapper.properties` 中的 `distributionUrl` 指向镜像（如阿里云或华为云 Gradle 镜像）。**注意**：
+
 - 修改仅限本机，不要将镜像地址提交到仓库
 - 提交前切回官方地址
 
@@ -544,28 +788,11 @@ runtimeOnly "com.yourname.yourmod:yourmod:1.0.0:runtime"
 
 ### `features`、`dev_packs`、`[dependencies.*]` 有什么区别？
 
-| 机制 | 用途 | 影响编译 | 影响运行时 |
-|---|---|---|---|
-| `[features]` | 模板内置的生态集成 | 是 | 是 |
-| `[dev_packs]` | 本地调试辅助模组组合 | 否 | 仅本地 |
-| `[dependencies.*]` | 自定义的任意额外依赖 | 取决于桶 | 取决于桶 |
-
-### KubeJS 现在怎么接？
-
-这条主线不再内置 KubeJS `dev_pack`。如果你要脚本环境，就按普通依赖加：
-
-```toml
-[dependencies.deobf_compile_only]
-kubejs = "dev.latvian.mods:kubejs-forge:2001.6.4-build.120"
-rhino = "dev.latvian.mods:rhino-forge:2001.2.2-build.18"
-
-[dependencies.deobf_implementation]
-architectury = { notation = "dev.architectury:architectury-forge:9.1.12", transitive = false }
-```
-
-### 为什么旧的 `template.toml` 或 `build.txt` 会直接报错？
-
-这是模板的硬约定：新旧配置格式互斥。检测到旧文件就失败，防止项目在两种配置体系之间产生不一致。
+| 机制               | 用途                 | 影响编译 | 影响运行时 |
+| ------------------ | -------------------- | -------- | ---------- |
+| `[features]`       | 模板内置的生态集成   | 是       | 是         |
+| `[dev_packs]`      | 本地调试辅助模组组合 | 否       | 仅本地     |
+| `[dependencies.*]` | 自定义的任意额外依赖 | 取决于桶 | 取决于桶   |
 
 ### 什么时候需要 `fg.deobf(...)`？
 
