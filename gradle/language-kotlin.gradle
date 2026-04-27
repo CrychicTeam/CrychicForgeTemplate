@@ -1,0 +1,27 @@
+apply plugin: "org.jetbrains.kotlin.jvm"
+
+sourceSets.main.kotlin.srcDir("src/main/kotlin")
+
+kotlin {
+    jvmToolchain(Integer.parseInt(project.ext.templatePlatform.javaVersion))
+}
+
+def kotlinCompileClass = project.buildscript.classLoader.loadClass("org.jetbrains.kotlin.gradle.tasks.KotlinCompile")
+def jvmTargetClass = project.buildscript.classLoader.loadClass("org.jetbrains.kotlin.gradle.dsl.JvmTarget")
+def jvmTarget = jvmTargetClass.getMethod("fromTarget", String).invoke(null, project.ext.templatePlatform.javaVersion)
+
+tasks.withType(kotlinCompileClass).configureEach { compileTask ->
+    compileTask.compilerOptions.jvmTarget.set(jvmTarget)
+}
+
+dependencies {
+    implementation(project.ext.createConfiguredDependency(
+        "org.jetbrains.kotlin:kotlin-stdlib:${project.ext.resolvedFeatureVersions.kotlin}",
+        true
+    ))
+    project.ext.addJarJarDependency(
+        "org.jetbrains.kotlin:kotlin-stdlib:${project.ext.resolvedFeatureVersions.kotlin}",
+        "[${project.ext.resolvedFeatureVersions.kotlin},)",
+        project.ext.resolvedFeatureVersions.kotlin
+    )
+}

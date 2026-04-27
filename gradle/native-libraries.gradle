@@ -1,0 +1,209 @@
+def template = project.ext.template
+def templateNativeLibraries = project.ext.templateNativeLibraries
+def nativeResourceDir = layout.buildDirectory.dir("generated/sources/nativeLibraries/resources")
+def nativeJavaDir = layout.buildDirectory.dir("generated/sources/nativeLibraries/java")
+def nativeLoaderPackage = "${template.group}.${template.modId}.runtime".replace("-", "_")
+def nativeLoaderPackagePath = nativeLoaderPackage.replace(".", "/")
+
+def nativeMetadataFile = nativeResourceDir.map {
+    it.file("META-INF/pickaid/native/native-libraries.properties").asFile
+}
+
+def expectedNativeLibraryFiles = {
+    templateNativeLibraries.collectMany { library ->
+        library.platforms.collect { platform ->
+            [
+                library : library,
+                platform: platform,
+                file    : file("native-libs/${library.name}/${platform.id}/${platform.fileName}")
+            ]
+        }
+    }
+}
+
+def assertNativeLibraryFilesPresent = {
+    expectedNativeLibraryFiles().each { entry ->
+        if (!entry.file.isFile()) {
+            throw new GradleException("Missing native library file for ${entry.library.name}/${entry.platform.id}: ${entry.file}")
+        }
+    }
+}
+
+assertNativeLibraryFilesPresent()
+
+def validateNativeLibraries = tasks.register("validateNativeLibraries") {
+    inputs.property("nativeLibraries", templateNativeLibraries.toString())
+    expectedNativeLibraryFiles().each { entry ->
+        inputs.file(entry.file)
+    }
+
+    doLast {
+        assertNativeLibraryFilesPresent()
+    }
+}
+
+def generateNativeLibraryResources = tasks.register("generateNativeLibraryResources") {
+    dependsOn(validateNativeLibraries)
+    outputs.dir(nativeResourceDir)
+
+    doLast {
+        def root = nativeResourceDir.get().asFile
+        delete(root)
+        templateNativeLibraries.each { library ->
+            library.platforms.each { platform ->
+                def source = file("native-libs/${library.name}/${platform.id}/${platform.fileName}")
+                def target = new File(root, "META-INF/pickaid/native/${library.name}/${platform.id}/${platform.fileName}")
+                target.parentFile.mkdirs()
+                target.bytes = source.bytes
+            }
+        }
+
+        def metadata = nativeMetadataFile.get()
+        metadata.parentFile.mkdirs()
+        metadata.withWriter("UTF-8") { writer ->
+            templateNativeLibraries.each { library ->
+                writer.println("${library.name}.loadName=${library.loadName}")
+                writer.println("${library.name}.loader=${library.loader}")
+                writer.println("${library.name}.required=${library.required}")
+                writer.println("${library.name}.platforms=${library.platforms.collect { it.id }.join(',')}")
+                library.platforms.each { platform ->
+                    writer.println("${library.name}.${platform.id}.fileName=${platform.fileName}")
+                }
+            }
+        }
+    }
+}
+
+def generateNativeLoader = tasks.register("generateNativeLoader") {
+    outputs.dir(nativeJavaDir)
+
+    doLast {
+        def output = new File(nativeJavaDir.get().asFile, "${nativeLoaderPackagePath}/NativeLibraries.java")
+        output.parentFile.mkdirs()
+        output.text = """package ${nativeLoaderPackage};
+
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Properties;
+
+public final class NativeLibraries {
+    private static final String METADATA = "META-INF/pickaid/native/native-libraries.properties";
+    private static final Properties LIBRARIES = loadMetadata();
+
+    private NativeLibraries() {
+    }
+
+    public static Path load(String libraryName) {
+        Path target = extract(libraryName);
+        if (!"jna".equals(LIBRARIES.getProperty(libraryName + ".loader", "jni"))) {
+            System.load(target.toAbsolutePath().toString());
+        }
+        return target;
+    }
+
+    public static Path extract(String libraryName) {
+        Objects.requireNonNull(libraryName, "libraryName");
+        String platform = detectPlatform();
+        String fileName = LIBRARIES.getProperty(libraryName + "." + platform + ".fileName");
+        if (fileName == null || fileName.isBlank()) {
+            throw new IllegalStateException("Native library " + libraryName + " does not support platform " + platform);
+        }
+
+        String resource = "META-INF/pickaid/native/" + libraryName + "/" + platform + "/" + fileName;
+        byte[] bytes = readResource(resource);
+        String hash = sha256(bytes);
+        Path target = Path.of(System.getProperty("java.io.tmpdir"), "pickaid-native", libraryName, hash, fileName);
+        try {
+            Files.createDirectories(target.getParent());
+            if (!Files.isRegularFile(target)) {
+                Files.write(target, bytes);
+            }
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Failed to extract native library " + libraryName + " to " + target, exception);
+        }
+        return target;
+    }
+
+    public static String detectPlatform() {
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        String osPart;
+        if (os.contains("win")) {
+            osPart = "windows";
+        } else if (os.contains("mac") || os.contains("darwin")) {
+            osPart = "macos";
+        } else if (os.contains("linux")) {
+            osPart = "linux";
+        } else {
+            throw new IllegalStateException("Unsupported native OS: " + os);
+        }
+
+        String archPart;
+        if (arch.equals("x86_64") || arch.equals("amd64")) {
+            archPart = "x86_64";
+        } else if (arch.equals("aarch64") || arch.equals("arm64")) {
+            archPart = "aarch64";
+        } else {
+            throw new IllegalStateException("Unsupported native architecture: " + arch);
+        }
+        return osPart + "-" + archPart;
+    }
+
+    private static Properties loadMetadata() {
+        Properties properties = new Properties();
+        try (InputStream input = NativeLibraries.class.getClassLoader().getResourceAsStream(METADATA)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing native library metadata resource: " + METADATA);
+            }
+            properties.load(input);
+            return properties;
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Failed to read native library metadata", exception);
+        }
+    }
+
+    private static byte[] readResource(String resource) {
+        try (InputStream input = NativeLibraries.class.getClassLoader().getResourceAsStream(resource)) {
+            if (input == null) {
+                throw new IllegalStateException("Missing native library resource: " + resource);
+            }
+            return input.readAllBytes();
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Failed to read native library resource: " + resource, exception);
+        }
+    }
+
+    private static String sha256(byte[] bytes) {
+        try {
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(bytes);
+            StringBuilder builder = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                builder.append(String.format("%02x", b));
+            }
+            return builder.toString();
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is not available", exception);
+        }
+    }
+}
+"""
+    }
+}
+
+sourceSets.main.resources.srcDir(generateNativeLibraryResources)
+sourceSets.main.java.srcDir(generateNativeLoader)
+if (project.extensions.findByName("legacyForge") != null) {
+    legacyForge.ideSyncTask(generateNativeLibraryResources)
+    legacyForge.ideSyncTask(generateNativeLoader)
+}
+if (project.extensions.findByName("neoForge") != null) {
+    neoForge.ideSyncTask(generateNativeLibraryResources)
+    neoForge.ideSyncTask(generateNativeLoader)
+}

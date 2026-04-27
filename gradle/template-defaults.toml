@@ -17,6 +17,7 @@ supported_dev_packs = ["curios"]
 
 [versions]
 registrate = "MC1.21-1.3.0+66"
+kotlin = "2.1.20"
 jei = "19.27.0.340"
 curios = "9.5.1+1.21.1"
 geckolib = "4.8.4"
