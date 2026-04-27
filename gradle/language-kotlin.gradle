@@ -1,0 +1,46 @@
+apply plugin: "org.jetbrains.kotlin.jvm"
+
+sourceSets.main.kotlin.srcDir("src/main/kotlin")
+
+kotlin {
+    jvmToolchain(Integer.parseInt(project.ext.templatePlatform.javaVersion))
+}
+
+def kotlinCompileClass = project.buildscript.classLoader.loadClass("org.jetbrains.kotlin.gradle.tasks.KotlinCompile")
+def jvmTargetClass = project.buildscript.classLoader.loadClass("org.jetbrains.kotlin.gradle.dsl.JvmTarget")
+def validationModeClass = project.buildscript.classLoader.loadClass("org.jetbrains.kotlin.gradle.dsl.jvm.JvmTargetValidationMode")
+def fromTargetMethod = jvmTargetClass.getMethod("fromTarget", String)
+def requestedJvmTarget = project.ext.templatePlatform.javaVersion
+def resolvedJvmTarget = null
+def jvmTarget = ([requestedJvmTarget, "24", "23", "22", "21", "17", "11", "8"].unique().findResult { candidate ->
+    try {
+        def target = fromTargetMethod.invoke(null, candidate)
+        resolvedJvmTarget = candidate
+        return target
+    } catch (Exception ignored) {
+        return null
+    }
+})
+if (jvmTarget == null) {
+    throw new GradleException("Kotlin Gradle plugin does not support a JVM target compatible with Java ${requestedJvmTarget}")
+}
+def validationWarning = Enum.valueOf(validationModeClass, "WARNING")
+
+tasks.withType(kotlinCompileClass).configureEach { compileTask ->
+    compileTask.compilerOptions.jvmTarget.set(jvmTarget)
+    if (resolvedJvmTarget != requestedJvmTarget) {
+        compileTask.jvmTargetValidationMode.set(validationWarning)
+    }
+}
+
+dependencies {
+    implementation(project.ext.createConfiguredDependency(
+        "org.jetbrains.kotlin:kotlin-stdlib:${project.ext.resolvedFeatureVersions.kotlin}",
+        true
+    ))
+    project.ext.addJarJarDependency(
+        "org.jetbrains.kotlin:kotlin-stdlib:${project.ext.resolvedFeatureVersions.kotlin}",
+        "[${project.ext.resolvedFeatureVersions.kotlin},)",
+        project.ext.resolvedFeatureVersions.kotlin
+    )
+}
