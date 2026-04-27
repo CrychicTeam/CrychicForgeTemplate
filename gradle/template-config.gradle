@@ -169,6 +169,12 @@ def localPublishTable = localParsed?.getTable("publish")
 // supported surface at a glance and configuration errors stay fail-fast.
 def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "embedded_projects", "metadata", "mod_relations", "overrides", "publish", "naming"] as Set
 def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
+def supportedFeatures = optionalStringArray(
+    platformTable,
+    "supported_features",
+    "platform.supported_features",
+    allowedFeatures.toList().sort()
+)
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
     "curios_version"          : "curios",
@@ -235,6 +241,9 @@ templateParsed.dottedKeySet().collect { it.split("\\.")[0] }.unique().each { key
 featuresTable.keySet().each { key ->
     if (!allowedFeatures.contains(key)) {
         failConfig("Unknown feature key: ${key}")
+    }
+    if ((featuresTable.getBoolean(key) ?: false) && !supportedFeatures.contains(key)) {
+        failConfig("feature ${key} is not available on this branch")
     }
 }
 
@@ -851,7 +860,7 @@ ext.templateLocal = [
 ]
 
 ext.resolvedFeatureVersions = [
-    registrate               : expectStringFromTable(versionsTable, "registrate", "versions"),
+    registrate               : optionalStringFromTable(versionsTable, "registrate"),
     jei                      : resolveVersion("jei_version", "jei"),
     curios                   : resolveVersion("curios_version", "curios"),
     geckolib                 : resolveVersion("geckolib_version", "geckolib"),

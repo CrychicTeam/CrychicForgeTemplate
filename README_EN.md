@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 1.21.1 Mod Template
+# PickAIDForgeTemplate — NeoForge 26.1 Mod Template
 
 English | [中文版](README.MD)
 
-`PickAIDForgeTemplate-1.21.1` is the `NeoForge 1.21.1` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
+`PickAIDForgeTemplate-26.1` is the `Minecraft 26.1.2` / `NeoForge 26.1.x` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
 
 ## Contents
 
@@ -34,10 +34,10 @@ English | [中文版](README.MD)
 
 Out of the box this branch already includes:
 
-- A buildable `NeoForge 1.21.1` project skeleton
+- A buildable `NeoForge 26.1` project skeleton
 - TOML-driven project configuration through `project.toml`
-- Built-in feature switches for JEI, Curios, GeckoLib, Player Animator, and MixinExtras
-- A deliberately small set of local helper packs, currently centered on `curios`
+- Curated feature switches for JEI, Curios, and MixinExtras
+- Local helper packs for `basic`, `appleskin`, and `curios`
 - Maven publication for the main jar, `sources`, and `javadoc`
 - Modrinth and CurseForge upload tasks
 - TOML-based repository and dependency management for most project needs
@@ -46,7 +46,7 @@ Out of the box this branch already includes:
 
 ## Prerequisites
 
-- **JDK 21** or whatever Java version this branch requires
+- **JDK 25** or Gradle toolchain auto-download enabled for JDK 25
 - A usable Gradle environment through the included wrapper
 - Basic Minecraft modding context such as `mod_id`, Mixins, `neoforge.mods.toml`, and Maven dependencies
 
@@ -56,7 +56,7 @@ Out of the box this branch already includes:
 
 ```bash
 git clone <repository-url>
-cd PickAIDForgeTemplate-1.21.1
+cd PickAIDForgeTemplate-26.1
 ```
 
 ### 2. Edit `project.toml`
@@ -142,13 +142,13 @@ This is the first block every project changes.
 
 ### `[features]` — ecosystem feature switches
 
-Built-in feature switches:
+Curated feature switches on this branch:
 
 - `jei`
 - `curios`
-- `geckolib`
-- `player_animator`
 - `mixin_extras`
+
+`geckolib` and `player_animator` stay off for now. Until compatible `26.1.2` artifacts exist, enabling them fails during configuration.
 
 Keep unused ones set to `false`.
 
@@ -156,22 +156,21 @@ Keep unused ones set to `false`.
 
 Use this only when a feature is enabled but you need a different version than the template default.
 
-Supported keys:
+Currently usable keys:
 
 - `jei_version`
 - `curios_version`
-- `geckolib_version`
-- `player_animator_version`
-- `bendylib_version`
 - `mixin_extras_version`
 
 ### `[dev_packs]` — local helper packs
 
-This branch keeps the dev-pack surface intentionally small.
+This branch only keeps local helper packs that have been re-curated for this version.
 
 Currently supported:
 
-- `curios`
+- `basic`: JEI + Jade
+- `appleskin`: AppleSkin
+- `curios`: Curios
 
 It only affects the local runtime environment. It does not define your published API surface.
 
@@ -253,7 +252,7 @@ String shorthand means "version range only":
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,)"
+curios = "[15.0.0-beta.2,)"
 ```
 
 On this branch, every relation except `embedded` must define `version_range`. When you use the inline-table form, `ordering` must be `NONE`, `BEFORE`, or `AFTER`, and `side` must be `BOTH`, `CLIENT`, or `SERVER`.
@@ -432,5 +431,5 @@ Use `version_range` inside `mod_relations.*`:
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,10.0.0)"
+curios = "[15.0.0-beta.2,16.0.0)"
 ```

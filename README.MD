@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 1.21.1 模组模板
+# PickAIDForgeTemplate — NeoForge 26.1 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-1.21.1` 是面向 `NeoForge 1.21.1` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
+`PickAIDForgeTemplate-26.1` 是面向 `Minecraft 26.1.2` / `NeoForge 26.1.x` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
 
 ## 目录
 
@@ -34,10 +34,10 @@
 
 克隆后即可直接使用的内容包括：
 
-- **NeoForge 1.21.1 项目骨架**：基于官方 `ModDevGradle`
+- **NeoForge 26.1 项目骨架**：基于官方 `ModDevGradle`
 - **`project.toml` 配置驱动**：模组信息、依赖、发布走一套 TOML 结构
-- **生态集成开关**：JEI、Curios、GeckoLib、Player Animator、MixinExtras
-- **本地调试辅助包**：当前分支先保留一个经过校准的 `curios` dev pack
+- **生态集成开关**：当前已校准 JEI、Curios、MixinExtras
+- **本地调试辅助包**：`basic`、`appleskin`、`curios`
 - **Maven 发布**：输出主 jar、sources、javadoc
 - **Modrinth / CurseForge 上传**：可直接走上传任务，token 通过环境变量或本机私有 TOML 注入
 - **TOML 依赖管理**：大多数额外依赖不需要再改 `build.gradle`
@@ -46,7 +46,7 @@
 
 ## 前置条件
 
-- **JDK 21** 或当前分支要求的 Java 版本
+- **JDK 25** 或允许 Gradle toolchain 自动下载 JDK 25
 - 一个可用的 Gradle 环境（项目自带 Gradle Wrapper）
 - 基本的 Minecraft Mod 开发概念（`mod_id`、Mixin、`neoforge.mods.toml`、Maven 依赖）
 
@@ -56,7 +56,7 @@
 
 ```bash
 git clone <仓库地址>
-cd PickAIDForgeTemplate-1.21.1
+cd PickAIDForgeTemplate-26.1
 ```
 
 ### 2. 编辑 `project.toml`
@@ -142,13 +142,13 @@ cp project.local.toml.example project.local.toml
 
 ### `[features]` — 生态集成开关
 
-当前模板内置支持：
+当前分支已经校准：
 
 - `jei`
 - `curios`
-- `geckolib`
-- `player_animator`
 - `mixin_extras`
+
+`geckolib` 和 `player_animator` 先保留为关闭状态；在它们发布可用的 `26.1.2` 构件前，开启会被配置校验拒绝。
 
 没用到就保持 `false`。
 
@@ -156,22 +156,21 @@ cp project.local.toml.example project.local.toml
 
 只有当你开启了某个 feature，但又不想使用模板默认版本时才需要改。
 
-支持：
+当前可用：
 
 - `jei_version`
 - `curios_version`
-- `geckolib_version`
-- `player_animator_version`
-- `bendylib_version`
 - `mixin_extras_version`
 
 ### `[dev_packs]` — 本地调试辅助包
 
-这条分支目前刻意保持得比较小，只保留已经重新校准过的本地辅助包。
+这条分支目前只保留已经重新校准过的本地辅助包。
 
 当前支持：
 
-- `curios`
+- `basic`: JEI + Jade
+- `appleskin`: AppleSkin
+- `curios`: Curios
 
 它只影响本地运行环境，不定义你的正式 API 面。
 
@@ -253,7 +252,7 @@ Gradle 子项目不放在 `[dependencies.*]`，而是放在：
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,)"
+curios = "[15.0.0-beta.2,)"
 ```
 
 除了 `embedded` 以外，这条分支上的关系都必须提供 `version_range`。如果使用 inline table，`ordering` 只能是 `NONE`、`BEFORE`、`AFTER`，`side` 只能是 `BOTH`、`CLIENT`、`SERVER`。
@@ -432,5 +431,5 @@ dependencies {
 
 ```toml
 [mod_relations.required]
-curios = "[9.5.1,10.0.0)"
+curios = "[15.0.0-beta.2,16.0.0)"
 ```
