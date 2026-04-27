@@ -21,6 +21,10 @@ geckolib = false
 player_animator = false
 mixin_extras = true
 
+[languages]
+# Java is always enabled. Kotlin is opt-in and can be mixed with Java.
+kotlin = false
+
 [dev_packs]
 # Local-only helper packs for development runs.
 basic = false
@@ -71,6 +75,15 @@ jitpack = "https://jitpack.io"
 #
 # [dependencies.annotation_processor]
 # mixinextras_common_processor = "io.github.llamalad7:mixinextras-common:0.5.4"
+#
+# Advanced native import example. Only prebuilt JNI/JNA binaries are packaged;
+# the template does not compile Rust/C/C++ sources.
+# Files go under native-libs/<library>/<platform>/<fileName>.
+# [native_libraries.physics]
+# load_name = "pickaid_physics"
+# loader = "jni"
+# platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+# required = true
 #
 # [dependencies.jarjar]
 # helper = { notation = "com.example:helper-neoforge:1.0.0", range = "[1.0.0,)" }

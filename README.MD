@@ -14,10 +14,12 @@
 - [配置参考](#配置参考)
   - [[mod] — 模组身份](#mod--模组身份)
   - [[features] — 生态集成开关](#features--生态集成开关)
+  - [[languages] — Java/Kotlin 开关](#languages--javakotlin-开关)
   - [[overrides] — 版本覆盖](#overrides--版本覆盖)
   - [[dev_packs] — 本地调试辅助包](#dev_packs--本地调试辅助包)
   - [[repositories] — 额外 Maven 仓库](#repositories--额外-maven-仓库)
   - [[dependencies.*] / [embedded_projects.*] — 额外依赖与嵌入子项目](#dependencies--embedded_projects--额外依赖与嵌入子项目)
+  - [[native_libraries.*] — 预编译 Native 库](#native_libraries--预编译-native-库)
   - [[metadata] — 模组展示信息](#metadata--模组展示信息)
   - [[mod_relations.*] — 模组关系声明](#mod_relations--模组关系声明)
   - [[publish] — 发布配置](#publish--发布配置)
@@ -37,6 +39,7 @@
 - **NeoForge 26.1 项目骨架**：基于官方 `ModDevGradle`
 - **`project.toml` 配置驱动**：模组信息、依赖、发布走一套 TOML 结构
 - **生态集成开关**：当前已校准 JEI、Curios、MixinExtras
+- **语言支持**：Java 默认启用，Kotlin 可选启用并与 Java 混写
 - **本地调试辅助包**：`basic`、`appleskin`、`curios`
 - **Maven 发布**：输出主 jar、sources、javadoc
 - **Modrinth / CurseForge 上传**：可直接走上传任务，token 通过环境变量或本机私有 TOML 注入
@@ -152,6 +155,17 @@ cp project.local.toml.example project.local.toml
 
 没用到就保持 `false`。
 
+### `[languages]` — Java/Kotlin 开关
+
+Java 是默认路径，始终启用。Kotlin 是可选增强，开启后可以把源码放在 `src/main/kotlin`，并继续和 `src/main/java` 混写：
+
+```toml
+[languages]
+kotlin = true
+```
+
+优先级建议保持为：Java > Kotlin > native。也就是说，普通 NeoForge API 和大多数依赖优先走 Java；需要 Kotlin 语法或库生态时再开启 Kotlin；Rust/C/C++ 这类 native 库只作为高级场景使用。
+
 ### `[overrides]` — 版本覆盖
 
 只有当你开启了某个 feature，但又不想使用模板默认版本时才需要改。
@@ -223,6 +237,229 @@ Gradle 子项目不放在 `[dependencies.*]`，而是放在：
 - `jarjar` 决定“外部依赖要不要打进最终 jar”
 - `embedded_projects.*` 决定“Gradle 子项目要不要被主模组一起带上”
 - `api` / `compile_only_api` 决定“下游编译时能不能看到它”
+
+### `[native_libraries.*]` — 预编译 Native 库
+
+这是高级功能，用来打包已经编译好的 JNI/JNA 二进制，不负责从 Rust/C/C++ 源码构建。每个库声明一个子表：
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+文件布局必须和平台匹配：
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+构建时模板会把文件打进 jar，并生成 `NativeLibraries` Java helper。运行时可从 `${group}.${mod_id}.runtime.NativeLibraries` 调用 `load("physics")`；如果使用 JNA，也可以使用返回的 `Path` 交给 JNA 绑定。
+
+#### JNI：从 Java/Kotlin 调用自己写的 native 方法
+
+假设：
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+生成的 helper 包名是 `com.example.physicsmod.runtime.NativeLibraries`。Java 侧先加载库，再声明 `native` 方法：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin 代码可以直接调用这个 Java wrapper：
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+C 侧函数名必须匹配 Java 包名、类名和方法名：
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+编译输出文件必须放进模板约定的目录。macOS aarch64 示例：
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 示例：
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows 输出文件名应为 `native-libs/physics/windows-x86_64/pickaid_physics.dll`。
+
+#### JNA：绑定已有 C ABI 库
+
+如果 native 库已经导出了普通 C 函数，而你不想写 JNI glue code，可以使用 JNA。先把 JNA 打进 jar：
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java 绑定示例：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin 调用同一个 JNA binding：
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+对应的 C 库只需要导出普通函数：
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+选择建议：JNI 更适合性能敏感或需要 JVM 交互的桥接层；JNA 更适合直接接入已有 C ABI 库。
+
+### 使用组合
+
+#### Java only（默认）
+
+不需要额外配置，保持：
+
+```toml
+[languages]
+kotlin = false
+```
+
+代码放在 `src/main/java`，普通 Java/NeoForge 开发都走这条路径。
+
+#### Kotlin only（仍保留 Java 工具链）
+
+开启 Kotlin，把业务代码放在 `src/main/kotlin`。Gradle 仍然保留 Java source set，因为 NeoForge、注解处理和生成代码依旧依赖 Java 工具链。
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + Kotlin
+
+开启 Kotlin 后，`src/main/java` 和 `src/main/kotlin` 会一起编译。Java 可以调用 Kotlin 暴露的 `@JvmStatic` / 普通 JVM API，Kotlin 也可以直接调用 Java 类。
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + native
+
+保持 Kotlin 关闭，只声明 native 库。Java 代码中调用生成的 helper：
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+#### Java + Kotlin + native
+
+同时开启 Kotlin 和 native。Java/Kotlin 都可以调用生成的 `NativeLibraries` helper：
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
 
 ### `[metadata]` — 模组展示信息
 

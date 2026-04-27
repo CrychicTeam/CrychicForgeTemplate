@@ -14,10 +14,12 @@ English | [中文版](README.MD)
 - [Configuration Reference](#configuration-reference)
   - [[mod] — mod identity](#mod--mod-identity)
   - [[features] — ecosystem feature switches](#features--ecosystem-feature-switches)
+  - [[languages] — Java/Kotlin switches](#languages--javakotlin-switches)
   - [[overrides] — version overrides](#overrides--version-overrides)
   - [[dev_packs] — local helper packs](#dev_packs--local-helper-packs)
   - [[repositories] — extra Maven repositories](#repositories--extra-maven-repositories)
   - [[dependencies.*] / [embedded_projects.*] — extra dependencies and embedded subprojects](#dependencies--embedded_projects--extra-dependencies-and-embedded-subprojects)
+  - [[native_libraries.*] — prebuilt native libraries](#native_libraries--prebuilt-native-libraries)
   - [[metadata] — mod display metadata](#metadata--mod-display-metadata)
   - [[mod_relations.*] — mod relation declarations](#mod_relations--mod-relation-declarations)
   - [[publish] — publishing settings](#publish--publishing-settings)
@@ -37,6 +39,7 @@ Out of the box this branch already includes:
 - A buildable `NeoForge 26.1` project skeleton
 - TOML-driven project configuration through `project.toml`
 - Curated feature switches for JEI, Curios, and MixinExtras
+- Java-first language support with optional Kotlin sources
 - Local helper packs for `basic`, `appleskin`, and `curios`
 - Maven publication for the main jar, `sources`, and `javadoc`
 - Modrinth and CurseForge upload tasks
@@ -152,6 +155,17 @@ Curated feature switches on this branch:
 
 Keep unused ones set to `false`.
 
+### `[languages]` — Java/Kotlin switches
+
+Java is the default path and is always enabled. Kotlin is optional; when enabled, sources in `src/main/kotlin` compile alongside `src/main/java`:
+
+```toml
+[languages]
+kotlin = true
+```
+
+Recommended priority is Java > Kotlin > native. Use Java for the normal NeoForge surface, Kotlin when its syntax or libraries are useful, and native libraries only for advanced prebuilt JNI/JNA integrations.
+
 ### `[overrides]` — version overrides
 
 Use this only when a feature is enabled but you need a different version than the template default.
@@ -223,6 +237,229 @@ The practical distinction is:
 - `jarjar` decides whether an external dependency is bundled into the final jar
 - `embedded_projects.*` decides whether a Gradle subproject is bundled into the main mod
 - `api` / `compile_only_api` decide whether downstream builds can compile against it
+
+### `[native_libraries.*]` — prebuilt native libraries
+
+This advanced section packages prebuilt JNI/JNA binaries. It does not compile Rust, C, or C++ source code.
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+Files must match the generated platform file names:
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+The build packages those files into the jar and generates a Java `NativeLibraries` helper. At runtime, call `load("physics")` from `${group}.${mod_id}.runtime.NativeLibraries`; for JNA, use the returned `Path` when binding the library.
+
+#### JNI: call your own native methods from Java or Kotlin
+
+Assume this project config:
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+The generated helper package is `com.example.physicsmod.runtime.NativeLibraries`. Load the library before declaring or calling native methods:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin can call that Java wrapper directly:
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+The C function name must match the Java package, class, and method:
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+Place compiled outputs in the template's native layout. macOS aarch64 example:
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 example:
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows should output `native-libs/physics/windows-x86_64/pickaid_physics.dll`.
+
+#### JNA: bind an existing C ABI library
+
+Use JNA when the native library already exports plain C functions and you do not want JNI glue code. Bundle JNA first:
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java binding example:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin can call the same JNA binding:
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+The C library only needs to export a plain function:
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+Rule of thumb: use JNI for performance-sensitive bridge code or JVM interaction; use JNA for existing C ABI libraries.
+
+### Usage combinations
+
+#### Java only
+
+No extra setup is required. Keep:
+
+```toml
+[languages]
+kotlin = false
+```
+
+Put source in `src/main/java`; this is the normal Java/NeoForge path.
+
+#### Kotlin only
+
+Enable Kotlin and place mod code in `src/main/kotlin`. The Java toolchain still stays enabled because NeoForge, annotation processing, and generated sources use Java infrastructure.
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + Kotlin
+
+Enable Kotlin and use both `src/main/java` and `src/main/kotlin`. Java can call Kotlin JVM APIs such as `@JvmStatic` members, and Kotlin can call Java classes directly.
+
+```toml
+[languages]
+kotlin = true
+```
+
+#### Java + native
+
+Keep Kotlin off and declare the native library. Java code calls the generated helper:
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+#### Java + Kotlin + native
+
+Enable Kotlin and native support together. Java and Kotlin can both call the generated `NativeLibraries` helper:
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
 
 ### `[metadata]` — mod display metadata
 

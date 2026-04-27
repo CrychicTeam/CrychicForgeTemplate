@@ -17,6 +17,7 @@ supported_features = ["jei", "curios", "mixin_extras"]
 supported_dev_packs = ["basic", "appleskin", "curios"]
 
 [versions]
+kotlin = "2.1.20"
 jei = "29.5.0.26"
 curios = "15.0.0-beta.2+26.1.2"
 geckolib = ""
