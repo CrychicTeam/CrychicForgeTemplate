@@ -1,43 +1,44 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — Forge 1.19.2 Mod Template
+# PickAIDForgeTemplate - Forge 1.19.2 Mod Template
 
-English | [中文版](README.MD)
+English Version | [中文版](README.MD)
 
-`PickAIDForgeTemplate-1.19.2` is only for `Forge 1.19.2`. This branch has been re-curated against the real `1.19.2` ecosystem, so the built-in versions in `project.toml`, the CurseMaven file ids, the local helper packs, and the publishing scripts all line up with this branch instead of carrying old `1.20.1` values.
+`PickAIDForgeTemplate-1.19.2` is only for `Forge 1.19.2`. This branch is curated for the real 1.19.2 ecosystem: built-in versions, CurseMaven file ids, local helper packs, and publishing tasks all target this branch.
 
-The point of this template is simple:
+Goals:
 
-- edit `project.toml` first
-- keep common dependency wiring out of handwritten `build.gradle`
-- drive local helper packs, publishing, and artifact naming from one config surface
-- get the project running first, then start writing mod code
+- New projects mostly edit `project.toml`
+- Common ecosystem dependencies do not need hard-coded `build.gradle` edits
+- Java is enabled by default, Kotlin is opt-in
+- Rust/C/C++ native libraries are supported as prebuilt JNI/JNA binaries only; this template does not compile native source code
+- Local helper packs, publishing, and archive naming all use one configuration model
 
-## One Important Rule
+## Branch Rules
 
-Versions are managed by branch, not by profile.
+Versions are managed by branches, not profiles.
 
-That means:
+- This branch only targets `Forge 1.19.2`
+- It does not accept `project.toml [platform]`
+- It does not accept `-PtemplateProfile=...`
+- `build.txt` and `template.toml` are deprecated
 
-- this branch only targets `Forge 1.19.2`
-- it does not accept `project.toml [platform]`
-- it does not accept `-PtemplateProfile=...`
-- `build.txt` and `template.toml` are no longer valid here
+## What This Branch Includes
 
-## What This Branch Already Includes
-
-- `Forge 1.19.2` on `ModDevGradle LegacyForge`
-- a single TOML entry point through `project.toml`
-- built-in feature switches for `jei`, `curios`, `geckolib`, `player_animator`, and `mixin_extras`
-- built-in local helper packs for `basic`, `appleskin`, `combat`, `curios`, `spell`, and `kubejs`
-- Maven publishing plus Modrinth / CurseForge upload tasks
-- shared Mixin and `mods.toml` templates
+- `Forge 1.19.2` with `ModDevGradle LegacyForge`
+- Single-entry configuration through `project.toml`
+- Built-in feature switches: `jei`, `curios`, `geckolib`, `player_animator`, `mixin_extras`
+- Built-in local helper packs: `basic`, `appleskin`, `combat`, `curios`, `spell`, `kubejs`
+- Java plus optional Kotlin mixed compilation
+- Prebuilt JNI/JNA native packaging and a generated runtime loading helper
+- Maven publication and Modrinth / CurseForge upload tasks
+- Shared Mixin and `mods.toml` templates
 
 ## Quick Start
 
 ### 1. Edit `project.toml`
 
-In most cases this is enough to start:
+These are usually the first fields to change:
 
 ```toml
 schema_version = 1
@@ -54,40 +55,40 @@ license = "MIT"
 description = "What this mod does."
 ```
 
-For preview or hotfix builds:
+For prereleases or hotfixes:
 
 ```toml
 version = "1.2.0"
 version_suffix = "hotfix.1"
 ```
 
-This renders the final version as `1.2.0-hotfix.1`.
+The final version becomes `1.2.0-hotfix.1`.
 
-### 2. Replace the sample code
+### 2. Replace Example Code
 
-The first files you usually touch are:
+Start with:
 
 1. `src/scaffolds/legacy-forge/java/org/pickaid/example/Example.java`
 2. `src/scaffolds/legacy-forge/templates/META-INF/mods.toml`
 3. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
 4. `src/templates/mixins.json`
 
-If your mod does not use Mixins, remove the sample mixin and the shared mixin template.
+If your project does not use Mixins, remove the example Mixin and template entry.
 
-### 3. Run Gradle once
+### 3. Run Gradle
 
 ```bash
 ./gradlew help
 ./gradlew build
 ```
 
-If that works, the template is basically switched over to your project.
+If these pass, the template is basically wired to your mod identity.
 
-## Most Common `project.toml` Blocks
+## Common `project.toml` Blocks
 
 ### `[mod]`
 
-This is the mod identity block:
+Primary mod identity:
 
 - `mod_id`
 - `mod_name`
@@ -100,7 +101,7 @@ This is the mod identity block:
 
 ### `[features]`
 
-Built-in feature switches:
+Built-in ecosystem switches:
 
 - `jei`
 - `curios`
@@ -108,24 +109,35 @@ Built-in feature switches:
 - `player_animator`
 - `mixin_extras`
 
+### `[languages]`
+
+Java is always enabled. Kotlin is optional; when enabled, sources under `src/main/kotlin` compile together with `src/main/java`:
+
+```toml
+[languages]
+kotlin = true
+```
+
+Recommended priority is Java > Kotlin > native. Use Java for the normal Forge API surface and most dependencies, Kotlin when its syntax or libraries help, and native libraries only for advanced JNI/JNA integrations.
+
 ### `[dev_packs]`
 
-These are local development helper packs, not your published API surface.
+These are local development helpers, not your published API surface.
 
-Built in right now:
+Built-in packs:
 
 - `basic`: JEI + Jade
 - `appleskin`: AppleSkin
 - `combat`: Target Dummy + AttributeFix + Max Health Fix
-- `curios`: Curios local runtime
+- `curios`: Curios runtime
 - `spell`: Caelus + Iron's Spellbooks
-- `kubejs`: Architectury + Rhino + KubeJS local runtime
+- `kubejs`: Architectury + Rhino + KubeJS runtime
 
-The `kubejs` pack is now re-curated for real `1.19.2` development instead of pointing at newer branch values.
+The `kubejs` pack is curated for real `1.19.2` development and can be used for local script smoke tests.
 
 ### `[repositories]` and `[dependencies.*]`
 
-Put extra repositories and dependencies here instead of growing `build.gradle` back into a pile of hardcoded coordinates.
+Put extra repositories and dependencies here instead of hard-coding them in `build.gradle`.
 
 Common dependency buckets:
 
@@ -142,26 +154,249 @@ Common dependency buckets:
 - `deobf_runtime_only`
 - `jarjar`
 
-The commented examples in `project.toml` already use `1.19.2`-correct coordinates, so you can usually start by uncommenting and adjusting them.
+`project.toml` already contains commented 1.19.2 examples you can enable and adjust.
 
-## Local-Only Settings
+### `[native_libraries.*]`
 
-`project.local.toml` stays out of git and is the right place for:
+This advanced feature packages already-built JNI/JNA binaries. It does not build Rust/C/C++ source code. Declare one child table per library:
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+The file layout must match the platform names:
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+At build time, the template packages those files into the jar and generates a `NativeLibraries` Java helper. At runtime, call `load("physics")` from `${group}.${mod_id}.runtime.NativeLibraries`.
+
+#### JNI: Call Native Methods From Java or Kotlin
+
+Given:
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+The generated helper package is `com.example.physicsmod.runtime.NativeLibraries`. Load the library before declaring native methods:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin can call that Java wrapper directly:
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+The C function name must match the Java package, class, and method:
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+Put the compiled output under the template layout. macOS aarch64 example:
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 example:
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows should output `native-libs/physics/windows-x86_64/pickaid_physics.dll`.
+
+#### JNA: Bind an Existing C ABI Library
+
+If the native library exports plain C functions and you do not want JNI glue code, use JNA. First package JNA:
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java binding example:
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin can call the same JNA binding:
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+The C library only needs to export a normal function:
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+JNI is a better fit for performance-sensitive code or deeper JVM interaction. JNA is better for existing C ABI libraries.
+
+## Usage Combinations
+
+### Java only
+
+Keep the default:
+
+```toml
+[languages]
+kotlin = false
+```
+
+Put code under `src/main/java`.
+
+### Kotlin only
+
+Enable Kotlin and put mod code under `src/main/kotlin`. The Java toolchain remains enabled because Forge, annotation processing, and generated code still use Java infrastructure.
+
+```toml
+[languages]
+kotlin = true
+```
+
+### Java + Kotlin
+
+Enable Kotlin and use both `src/main/java` and `src/main/kotlin`. Java can call Kotlin JVM APIs such as `@JvmStatic` members, and Kotlin can call Java classes directly.
+
+```toml
+[languages]
+kotlin = true
+```
+
+### Java + native
+
+Keep Kotlin off and declare the native library. Java code calls the generated helper:
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+### Java + Kotlin + native
+
+Enable Kotlin and native support together. Java and Kotlin can both call the generated `NativeLibraries` helper:
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
+
+## Local Private Config
+
+`project.local.toml` is ignored by git and is intended for:
 
 - `[run].mc_user`
-- local Maven credentials
+- Maven credentials
 - Modrinth / CurseForge tokens
 
-Start from [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate-1.19.2/project.local.toml.example).
+You can copy it from [`project.local.toml.example`](/Users/gedwen/Documents/programing/MC/PickAIDForgeTemplate-1.19.2/project.local.toml.example).
 
 ## Publishing
 
-Publishing is driven by `project.toml` and `project.local.toml`.
+Publishing is configured through `project.toml` / `project.local.toml`.
 
-The practical setup is:
+Recommended split:
 
-1. keep repository URLs in `project.toml`
-2. keep credentials and tokens in `project.local.toml` or environment variables
+1. Repository URLs go in `project.toml`
+2. Usernames, passwords, and tokens go in `project.local.toml` or environment variables
 
 Supported environment variables:
 

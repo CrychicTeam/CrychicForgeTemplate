@@ -132,6 +132,8 @@ def devPacksTable = templateParsed.getTable("dev_packs")
 def repositoriesTable = templateParsed.getTable("repositories")
 def dependenciesTable = templateParsed.getTable("dependencies")
 def compatTable = templateParsed.getTable("compat")
+def languagesTable = templateParsed.getTable("languages")
+def nativeLibrariesTable = templateParsed.getTable("native_libraries")
 def publishTable = expectTable(templateParsed, "publish")
 def namingTable = expectTable(templateParsed, "naming")
 def overridesTable = templateParsed.getTable("overrides")
@@ -148,8 +150,11 @@ def localPublishTable = localParsed?.getTable("publish")
 
 // project.toml is intentionally small at the top level so authors can see the
 // supported surface at a glance and configuration errors stay fail-fast.
-def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "compat", "overrides", "publish", "naming"] as Set
+def allowedTopLevel = ["schema_version", "template_version", "mod", "features", "dev_packs", "repositories", "dependencies", "compat", "languages", "native_libraries", "overrides", "publish", "naming"] as Set
 def allowedFeatures = ["jei", "curios", "geckolib", "player_animator", "mixin_extras"] as Set
+def allowedLanguages = ["kotlin"] as Set
+def allowedNativeLibraryKeys = ["load_name", "loader", "platforms", "required"] as Set
+def allowedNativeLoaders = ["jni", "jna"] as Set
 def allowedOverrideToFeature = [
     "jei_version"             : "jei",
     "curios_version"          : "curios",
@@ -224,6 +229,25 @@ if (overridesTable != null) {
             failConfig("Override ${key} requires enabled feature ${owningFeature}")
         }
     }
+}
+
+def parseLanguagesTable = { def table ->
+    def languages = [kotlin: false]
+    if (table == null) {
+        return languages
+    }
+
+    table.keySet().each { key ->
+        if (!allowedLanguages.contains(key)) {
+            failConfig("Unknown languages key: ${key}")
+        }
+        if (!table.isBoolean(key)) {
+            failConfig("languages.${key} must be a boolean")
+        }
+    }
+
+    languages.kotlin = table.getBoolean("kotlin") ?: false
+    languages
 }
 
 def qualifyPath = { String prefix, String key ->
@@ -418,9 +442,75 @@ def parseDependencyTables = { def rootTable, String prefix = "" ->
     dependencySpecs
 }
 
+def nativeFileNameFor = { String loadName, String platform ->
+    if (platform.startsWith("windows-")) {
+        return "${loadName}.dll"
+    }
+    if (platform.startsWith("linux-")) {
+        return "lib${loadName}.so"
+    }
+    if (platform.startsWith("macos-")) {
+        return "lib${loadName}.dylib"
+    }
+    failConfig("Unsupported native platform: ${platform}")
+}
+
+def parseNativeLibraryTables = { def rootTable, String prefix = "native_libraries" ->
+    def nativeLibraries = []
+    if (rootTable == null) {
+        return nativeLibraries
+    }
+
+    rootTable.keySet().each { libraryKey ->
+        def entryPath = "${prefix}.${libraryKey}"
+        def table = rootTable.getTable(libraryKey)
+        if (table == null) {
+            failConfig("Native library ${entryPath} must be a TOML table")
+        }
+
+        table.keySet().each { key ->
+            if (!allowedNativeLibraryKeys.contains(key)) {
+                failConfig("Native library ${entryPath} has unsupported key ${key}")
+            }
+        }
+
+        def loadName = expectStringFromTable(table, "load_name", entryPath)
+        def loader = optionalStringFromTable(table, "loader", "jni")
+        def platforms = expectStringArray(table, "platforms", entryPath)
+        def required = optionalBooleanFromTable(table, "required", true)
+
+        if (!allowedNativeLoaders.contains(loader)) {
+            failConfig("Native library ${entryPath}.loader must be one of ${allowedNativeLoaders.join(', ')}")
+        }
+        if (!(libraryKey ==~ /[A-Za-z0-9_][A-Za-z0-9_.-]*/)) {
+            failConfig("Native library key must start with a letter, digit, or underscore and contain only letters, digits, _, ., or -: ${libraryKey}")
+        }
+        if (!(loadName ==~ /[A-Za-z0-9_][A-Za-z0-9_.-]*/)) {
+            failConfig("Native library ${entryPath}.load_name has unsupported characters: ${loadName}")
+        }
+
+        nativeLibraries << [
+            name     : libraryKey,
+            loadName : loadName,
+            loader   : loader,
+            platforms: platforms.collect { platform ->
+                [
+                    id      : platform,
+                    fileName: nativeFileNameFor(loadName, platform)
+                ]
+            },
+            required : required
+        ]
+    }
+
+    nativeLibraries
+}
+
 // Generic dependency tables let projects opt into extra libraries without the
 // template growing one more hard-coded feature switch for every ecosystem mod.
 def templateDependencySpecs = parseDependencyTables(dependenciesTable)
+def templateLanguagesSpec = parseLanguagesTable(languagesTable)
+def templateNativeLibrarySpecs = parseNativeLibraryTables(nativeLibrariesTable)
 def builtinDependencySpecs = parseDependencyTables(builtinDependenciesTable, "builtin_dependencies")
 def supportedDevPacks = optionalStringArray(
     platformTable,
@@ -483,6 +573,8 @@ ext.templateTables = [
     devPacks : devPacksTable,
     repositories: repositoriesTable,
     dependencies: dependenciesTable,
+    languages: languagesTable,
+    nativeLibraries: nativeLibrariesTable,
     publish  : publishTable,
     naming   : namingTable,
     overrides: overridesTable
@@ -494,6 +586,8 @@ ext.templateRepositories = [
     devPacks: devPackRepositories.values().toList()
 ]
 ext.enabledDevPacks = enabledDevPacks
+ext.templateLanguages = templateLanguagesSpec
+ext.templateNativeLibraries = templateNativeLibrarySpecs
 
 def modId = expectStringFromTable(modTable, "mod_id", "mod")
 def modName = expectStringFromTable(modTable, "mod_name", "mod")
@@ -617,6 +711,8 @@ ext.templateLocal = [
 
 ext.resolvedFeatureVersions = [
     registrate               : expectStringFromTable(versionsTable, "registrate", "versions"),
+    kotlin                   : expectStringFromTable(versionsTable, "kotlin", "versions"),
+    kubejsForge              : optionalStringFromTable(versionsTable, "kubejs_forge"),
     jei                      : resolveVersion("jei_version", "jei"),
     curios                   : resolveVersion("curios_version", "curios"),
     geckolib                 : resolveVersion("geckolib_version", "geckolib"),
@@ -669,6 +765,8 @@ def dependencyTokens = [
     mixin_extras_loader: loader,
     mixin_extras_group : mixinExtrasGroup,
     registrate     : project.ext.resolvedFeatureVersions.registrate,
+    kotlin         : project.ext.resolvedFeatureVersions.kotlin,
+    kubejs_forge   : project.ext.resolvedFeatureVersions.kubejsForge,
     jei            : project.ext.resolvedFeatureVersions.jei,
     curios         : project.ext.resolvedFeatureVersions.curios,
     geckolib       : project.ext.resolvedFeatureVersions.geckolib,

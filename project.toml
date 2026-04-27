@@ -20,6 +20,10 @@ geckolib = false
 player_animator = false
 mixin_extras = true
 
+[languages]
+# Java is always enabled. Kotlin is opt-in and can be mixed with Java.
+kotlin = false
+
 [dev_packs]
 # Local-only helper packs for development runs.
 # They are for easier local testing and do not define your published API surface.
@@ -78,6 +82,15 @@ jitpack = "https://jitpack.io"
 #
 # [dependencies.deobf_implementation]
 # architectury = { notation = "dev.architectury:architectury-forge:6.5.90", transitive = false }
+#
+# Advanced native import example. Only prebuilt JNI/JNA binaries are packaged;
+# the template does not compile Rust/C/C++ sources.
+# Files go under native-libs/<library>/<platform>/<fileName>.
+# [native_libraries.physics]
+# load_name = "pickaid_physics"
+# loader = "jni"
+# platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+# required = true
 #
 # [dependencies.deobf_compile_only_api]
 # curios_api = "top.theillusivec4.curios:curios-forge:1.19.2-5.1.6.4"

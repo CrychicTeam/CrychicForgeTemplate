@@ -1,23 +1,22 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — Forge 1.19.2 模组模板
+# PickAIDForgeTemplate - Forge 1.19.2 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-1.19.2` 只服务于 `Forge 1.19.2`。这条分支已经按 `1.19.2` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版，不再混着 `1.20.1` 的旧值。
+`PickAIDForgeTemplate-1.19.2` 只服务于 `Forge 1.19.2`。这条分支已经按 `1.19.2` 的实际生态重新校准，`project.toml` 里的内置版本、CurseMaven file id、本地调试包和发布脚本都对应这一版。
 
-这支模板的目标很直接：
+目标：
 
 - 新项目主要改 `project.toml`
 - 常见生态依赖尽量不再手改 `build.gradle`
+- Java 默认可用，Kotlin 可选启用
+- Rust/C/C++ 这类 native 库只打包预编译 JNI/JNA 二进制，不在 Gradle 内编译 native 源码
 - 本地调试包、发布配置、产物命名都走统一配置
-- 先把项目跑起来，再开始写模组逻辑
 
 ## 先知道这件事
 
 版本是按 branch 管的，不是按 profile 管的。
-
-也就是说：
 
 - 这条分支只负责 `Forge 1.19.2`
 - 不接受 `project.toml [platform]`
@@ -30,6 +29,8 @@
 - `project.toml` 单入口配置
 - 内置 feature 开关：`jei`、`curios`、`geckolib`、`player_animator`、`mixin_extras`
 - 内置本地调试包：`basic`、`appleskin`、`combat`、`curios`、`spell`、`kubejs`
+- Java + 可选 Kotlin 混合编译
+- 预编译 JNI/JNA native 库打包和运行时加载 helper
 - Maven 发布、Modrinth / CurseForge 上传任务
 - 共享的 Mixin 模板和 `mods.toml` 模板
 
@@ -108,6 +109,17 @@ version_suffix = "hotfix.1"
 - `player_animator`
 - `mixin_extras`
 
+### `[languages]`
+
+Java 始终启用。Kotlin 是可选增强，开启后可以把源码放在 `src/main/kotlin`，并继续和 `src/main/java` 混写：
+
+```toml
+[languages]
+kotlin = true
+```
+
+优先级建议保持为：Java > Kotlin > native。普通 Forge API 和大多数依赖优先走 Java；需要 Kotlin 语法或库生态时再开启 Kotlin；Rust/C/C++ 这类 native 库只作为高级场景使用。
+
 ### `[dev_packs]`
 
 这些是本地开发辅助包，不是你正式对外的 API 面。
@@ -143,6 +155,229 @@ version_suffix = "hotfix.1"
 - `jarjar`
 
 `project.toml` 里已经给了 1.19.2 对应的示例坐标，直接取消注释再按需调整即可。
+
+### `[native_libraries.*]`
+
+这是高级功能，用来打包已经编译好的 JNI/JNA 二进制，不负责从 Rust/C/C++ 源码构建。每个库声明一个子表：
+
+```toml
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+文件布局必须和平台匹配：
+
+```text
+native-libs/
+  physics/
+    windows-x86_64/pickaid_physics.dll
+    linux-x86_64/libpickaid_physics.so
+    macos-aarch64/libpickaid_physics.dylib
+```
+
+构建时模板会把文件打进 jar，并生成 `NativeLibraries` Java helper。运行时可从 `${group}.${mod_id}.runtime.NativeLibraries` 调用 `load("physics")`。
+
+#### JNI：从 Java/Kotlin 调用自己写的 native 方法
+
+假设：
+
+```toml
+[mod]
+mod_id = "physicsmod"
+group = "com.example"
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+生成的 helper 包名是 `com.example.physicsmod.runtime.NativeLibraries`。Java 侧先加载库，再声明 `native` 方法：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+
+public final class PhysicsNative {
+    static {
+        NativeLibraries.load("physics");
+    }
+
+    private PhysicsNative() {
+    }
+
+    public static native int add(int left, int right);
+}
+```
+
+Kotlin 代码可以直接调用这个 Java wrapper：
+
+```kotlin
+val result = PhysicsNative.add(20, 22)
+```
+
+C 侧函数名必须匹配 Java 包名、类名和方法名：
+
+```c
+#include <jni.h>
+
+JNIEXPORT jint JNICALL Java_com_example_physicsmod_physics_PhysicsNative_add(
+    JNIEnv *env,
+    jclass type,
+    jint left,
+    jint right
+) {
+    return left + right;
+}
+```
+
+编译输出文件必须放进模板约定的目录。macOS aarch64 示例：
+
+```bash
+mkdir -p native-libs/physics/macos-aarch64
+clang -dynamiclib \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/darwin" \
+  physics.c \
+  -o native-libs/physics/macos-aarch64/libpickaid_physics.dylib
+```
+
+Linux x86_64 示例：
+
+```bash
+mkdir -p native-libs/physics/linux-x86_64
+clang -shared -fPIC \
+  -I"$JAVA_HOME/include" \
+  -I"$JAVA_HOME/include/linux" \
+  physics.c \
+  -o native-libs/physics/linux-x86_64/libpickaid_physics.so
+```
+
+Windows 输出文件名应为 `native-libs/physics/windows-x86_64/pickaid_physics.dll`。
+
+#### JNA：绑定已有 C ABI 库
+
+如果 native 库已经导出了普通 C 函数，而你不想写 JNI glue code，可以使用 JNA。先把 JNA 打进 jar：
+
+```toml
+[dependencies.jarjar]
+jna = { notation = "net.java.dev.jna:jna:5.14.0", range = "[5.14.0,)" }
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jna"
+platforms = ["macos-aarch64", "linux-x86_64", "windows-x86_64"]
+required = true
+```
+
+Java 绑定示例：
+
+```java
+package com.example.physicsmod.physics;
+
+import com.example.physicsmod.runtime.NativeLibraries;
+import com.sun.jna.Library;
+import com.sun.jna.Native;
+
+public interface PhysicsLibrary extends Library {
+    PhysicsLibrary INSTANCE = Native.load(
+        NativeLibraries.load("physics").toString(),
+        PhysicsLibrary.class
+    );
+
+    int add(int left, int right);
+}
+```
+
+Kotlin 调用同一个 JNA binding：
+
+```kotlin
+val result = PhysicsLibrary.INSTANCE.add(20, 22)
+```
+
+对应的 C 库只需要导出普通函数：
+
+```c
+int add(int left, int right) {
+    return left + right;
+}
+```
+
+选择建议：JNI 更适合性能敏感或需要 JVM 交互的桥接层；JNA 更适合直接接入已有 C ABI 库。
+
+## 使用组合
+
+### Java only
+
+保持默认：
+
+```toml
+[languages]
+kotlin = false
+```
+
+代码放在 `src/main/java`。
+
+### Kotlin only
+
+开启 Kotlin，把业务代码放在 `src/main/kotlin`。Java 工具链仍然保留，因为 Forge、注解处理和生成代码依旧依赖 Java 基础设施。
+
+```toml
+[languages]
+kotlin = true
+```
+
+### Java + Kotlin
+
+开启 Kotlin 后，`src/main/java` 和 `src/main/kotlin` 会一起编译。Java 可以调用 Kotlin 暴露的 `@JvmStatic` / 普通 JVM API，Kotlin 也可以直接调用 Java 类。
+
+```toml
+[languages]
+kotlin = true
+```
+
+### Java + native
+
+保持 Kotlin 关闭，只声明 native 库。Java 代码中调用生成的 helper：
+
+```toml
+[languages]
+kotlin = false
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```java
+NativeLibraries.load("physics");
+```
+
+### Java + Kotlin + native
+
+同时开启 Kotlin 和 native。Java/Kotlin 都可以调用生成的 `NativeLibraries` helper：
+
+```toml
+[languages]
+kotlin = true
+
+[native_libraries.physics]
+load_name = "pickaid_physics"
+loader = "jni"
+platforms = ["windows-x86_64", "linux-x86_64", "macos-aarch64"]
+required = true
+```
+
+```kotlin
+NativeLibraries.load("physics")
+```
 
 ## 本机私有配置
 

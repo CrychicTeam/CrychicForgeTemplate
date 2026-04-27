@@ -19,6 +19,7 @@ supported_dev_packs = ["basic", "appleskin", "combat", "curios", "spell", "kubej
 
 [versions]
 registrate = "MC1.19-1.1.5"
+kotlin = "2.1.20"
 jei = "11.8.1.1034"
 curios = "1.19.2-5.1.6.4"
 geckolib = "3.1.40"
