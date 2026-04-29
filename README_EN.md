@@ -68,8 +68,8 @@ The final version becomes `1.2.0-hotfix.1`.
 
 Start with:
 
-1. `src/scaffolds/legacy-forge/java/org/pickaid/example/Example.java`
-2. `src/scaffolds/legacy-forge/templates/META-INF/mods.toml`
+1. `src/main/java/org/pickaid/example/Example.java`
+2. `src/templates/META-INF/mods.toml`
 3. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
 4. `src/templates/mixins.json`
 
