@@ -189,6 +189,31 @@ require_readme_text() {
   fi
 }
 
+require_file() {
+  local path="$1"
+  if [[ ! -f "$path" ]]; then
+    echo "Expected file to exist: ${path#$ROOT/}" >&2
+    exit 1
+  fi
+}
+
+require_absent_path() {
+  local path="$1"
+  if [[ -e "$path" ]]; then
+    echo "Path must not exist in the template layout: ${path#$ROOT/}" >&2
+    exit 1
+  fi
+}
+
+require_absent_text() {
+  local file="$1"
+  local text="$2"
+  if grep -F "$text" "$file" >/dev/null; then
+    echo "Unexpected text in ${file#$ROOT/}: $text" >&2
+    exit 1
+  fi
+}
+
 remove_top_level_table() {
   local table="$1"
   local temp="$PROJECT_TOML.tmp"
@@ -220,6 +245,12 @@ for native_example in "Java_com_example_physicsmod_physics_PhysicsNative_add" "N
   require_readme_text "$ROOT/README.MD" "$native_example"
   require_readme_text "$ROOT/README_EN.md" "$native_example"
 done
+require_absent_path "$ROOT/src/scaffolds"
+require_absent_text "$ROOT/README.MD" "src/scaffolds"
+require_absent_text "$ROOT/README_EN.md" "src/scaffolds"
+require_absent_text "$ROOT/build.gradle" "src/scaffolds"
+require_file "$ROOT/src/main/java/org/pickaid/example/Example.java"
+require_file "$ROOT/src/templates/META-INF/mods.toml"
 
 run_gradle_success "java-only default" classes --quiet
 
