@@ -92,8 +92,7 @@ def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
 def runtimeDistributionJar = layout.buildDirectory.file("libs/${renderedArchiveStem}.jar")
 def mixinRefmapMappings = layout.buildDirectory.file("mixin/${template.modId}.refmap.json.mappings.tsrg")
 def mdgNamedToIntermediate = layout.buildDirectory.file("moddev/artifacts/namedToIntermediate.tsrg")
-def scaffoldJavaDir = file("src/scaffolds/legacy-forge/java")
-def metadataTemplateDir = file("src/scaffolds/legacy-forge/templates")
+def metadataTemplateDir = file("src/templates")
 def mixinTemplateFile = file("src/templates/mixins.json")
 
 version = template.finalVersion
@@ -104,17 +103,13 @@ base {
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(Integer.parseInt(templatePlatform.javaVersion))
 
-if (!scaffoldJavaDir.isDirectory()) {
-    throw new GradleException("Missing scaffold java directory: ${scaffoldJavaDir}")
-}
 if (!metadataTemplateDir.isDirectory()) {
-    throw new GradleException("Missing metadata scaffold directory: ${metadataTemplateDir}")
+    throw new GradleException("Missing metadata template directory: ${metadataTemplateDir}")
 }
 if (!mixinTemplateFile.isFile()) {
     throw new GradleException("Missing shared mixin template: ${mixinTemplateFile}")
 }
 
-sourceSets.main.java.srcDir(scaffoldJavaDir)
 sourceSets.main.resources.srcDir('src/generated/resources')
 
 mixin {
@@ -461,7 +456,9 @@ def generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     inputs.properties replaceProperties
     replaceProperties.put 'project', project
     expand replaceProperties
-    from(metadataTemplateDir)
+    from(metadataTemplateDir) {
+        include "META-INF/**"
+    }
     into(layout.buildDirectory.dir("generated/sources/modMetadata"))
 }
 
