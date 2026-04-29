@@ -91,7 +91,7 @@ def hasModrinthTarget = !template.modrinthProject.isBlank()
 def hasCurseforgeTarget = template.curseforgeProject > 0L
 def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
 def runtimeDistributionJar = tasks.named("jar", Jar).flatMap { it.archiveFile }
-def metadataTemplateDir = file("src/scaffolds/modern-neoforge/templates")
+def metadataTemplateDir = file("src/templates")
 def mixinTemplateFile = file("src/templates/mixins.json")
 def accessTransformerFile = file("src/main/resources/META-INF/accesstransformer.cfg")
 
@@ -705,7 +705,9 @@ def generateModMetadata = tasks.register("generateModMetadata", ProcessResources
     inputs.properties replaceProperties
     replaceProperties.put 'project', project
     expand replaceProperties
-    from(metadataTemplateDir)
+    from(metadataTemplateDir) {
+        include "META-INF/**"
+    }
     into(layout.buildDirectory.dir("generated/sources/modMetadata"))
 }
 

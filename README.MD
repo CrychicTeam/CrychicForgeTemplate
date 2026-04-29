@@ -96,7 +96,7 @@ version_suffix = "hotfix.1"
 
 1. `src/main/java/org/pickaid/example/Example.java`
 2. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
-3. `src/scaffolds/modern-neoforge/templates/META-INF/neoforge.mods.toml`
+3. `src/templates/META-INF/neoforge.mods.toml`
 4. `src/templates/mixins.json`
 
 如果你的项目不用 Mixin，就删除示例 Mixin 和 `src/templates/mixins.json`。
@@ -569,7 +569,7 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 
 主源码目录。示例入口和示例 Mixin 都在这里。
 
-### `src/scaffolds/modern-neoforge/templates`
+### `src/templates/META-INF`
 
 `neoforge.mods.toml` 的模板来源。只有你要改生成出来的元数据结构时才需要碰。
 
