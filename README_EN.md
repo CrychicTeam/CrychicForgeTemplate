@@ -96,7 +96,7 @@ The first files you usually touch are:
 
 1. `src/main/java/org/pickaid/example/Example.java`
 2. `src/main/java/org/pickaid/example/mixins/ExampleMixin.java`
-3. `src/scaffolds/modern-neoforge/templates/META-INF/neoforge.mods.toml`
+3. `src/templates/META-INF/neoforge.mods.toml`
 4. `src/templates/mixins.json`
 
 If your mod does not use Mixins, remove the sample mixin and `src/templates/mixins.json`.
@@ -569,7 +569,7 @@ Machine-local settings that should not go into git.
 
 Primary source directory. The sample entrypoint and sample mixin live here.
 
-### `src/scaffolds/modern-neoforge/templates`
+### `src/templates/META-INF`
 
 The source template for `neoforge.mods.toml`. You only need to touch it when you want to change generated metadata structure.
 
