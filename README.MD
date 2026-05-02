@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 26.1 模组模板
+# PickAIDForgeTemplate — NeoForge 26.1.2 模组模板
 
 [English Version](README_EN.md) | 中文版
 
-`PickAIDForgeTemplate-26.1` 是面向 `Minecraft 26.1.2` / `NeoForge 26.1.x` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
+`PickAIDForgeTemplate-26.1` 是面向 `Minecraft 26.1.2` / `NeoForge 26.1.2.x` 的模板分支。它用 `project.toml` 作为单一配置入口，把**模组信息、依赖、运行配置和发布链路**放在一套固定结构里，避免每个新项目都重新整理 Gradle。
 
 ## 目录
 
@@ -36,7 +36,7 @@
 
 克隆后即可直接使用的内容包括：
 
-- **NeoForge 26.1 项目骨架**：基于官方 `ModDevGradle`
+- **NeoForge 26.1.2 项目骨架**：基于官方 `ModDevGradle`
 - **`project.toml` 配置驱动**：模组信息、依赖、发布走一套 TOML 结构
 - **生态集成开关**：当前已校准 JEI、Curios、MixinExtras
 - **语言支持**：Java 默认启用，Kotlin 可选启用并与 Java 混写

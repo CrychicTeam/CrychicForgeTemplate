@@ -1,10 +1,10 @@
 <div align="center"><img height="200" src="src/main/resources/icon.png" width="200"/></div>
 
-# PickAIDForgeTemplate — NeoForge 26.1 Mod Template
+# PickAIDForgeTemplate — NeoForge 26.1.2 Mod Template
 
 English | [中文版](README.MD)
 
-`PickAIDForgeTemplate-26.1` is the `Minecraft 26.1.2` / `NeoForge 26.1.x` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
+`PickAIDForgeTemplate-26.1` is the `Minecraft 26.1.2` / `NeoForge 26.1.2.x` template line. It uses `project.toml` as the single configuration surface for **mod identity, dependencies, run settings, and publishing**, so new projects do not start with Gradle cleanup work.
 
 ## Contents
 
@@ -36,7 +36,7 @@ English | [中文版](README.MD)
 
 Out of the box this branch already includes:
 
-- A buildable `NeoForge 26.1` project skeleton
+- A buildable `NeoForge 26.1.2` project skeleton
 - TOML-driven project configuration through `project.toml`
 - Curated feature switches for JEI, Curios, and MixinExtras
 - Java-first language support with optional Kotlin sources

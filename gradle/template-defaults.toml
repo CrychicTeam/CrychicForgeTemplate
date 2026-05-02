@@ -1,6 +1,6 @@
 # Keep this branch-specific defaults file intentionally curated. Project-level
 # extras belong in project.toml via [repositories] and [dependencies.*].
-defaults_revision = "neoforge-26.1-r1"
+defaults_revision = "neoforge-26.1.2-r1"
 
 [platform]
 loader = "neoforge"
