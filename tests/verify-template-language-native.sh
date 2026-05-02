@@ -254,6 +254,10 @@ for combo in "Java only" "Kotlin only" "Java + Kotlin" "Java + native" "Java + K
   require_readme_text "$ROOT/README.MD" "$combo"
   require_readme_text "$ROOT/README_EN.md" "$combo"
 done
+for baseline_text in "26.1.2.30-beta" "class major version \`69\`" "SavedDataType<T>" "ChunkDataEvent" "markUnsaved()"; do
+  require_readme_text "$ROOT/README.MD" "$baseline_text"
+  require_readme_text "$ROOT/README_EN.md" "$baseline_text"
+done
 for native_example in "Java_com_example_physicsmod_physics_PhysicsNative_add" "Native.load" "net.java.dev.jna:jna:5.14.0" "clang -shared -fPIC"; do
   require_readme_text "$ROOT/README.MD" "$native_example"
   require_readme_text "$ROOT/README_EN.md" "$native_example"
@@ -261,6 +265,8 @@ done
 require_absent_path "$ROOT/src/scaffolds"
 require_absent_text "$ROOT/README.MD" "src/scaffolds"
 require_absent_text "$ROOT/README_EN.md" "src/scaffolds"
+require_absent_text "$ROOT/README.MD" "删除示例 Mixin 和 \`src/templates/mixins.json\`"
+require_absent_text "$ROOT/README_EN.md" "remove the sample mixin and \`src/templates/mixins.json\`"
 require_absent_text "$ROOT/build.gradle" "src/scaffolds"
 require_file "$ROOT/src/main/java/org/pickaid/example/Example.java"
 require_file "$ROOT/src/templates/META-INF/neoforge.mods.toml"

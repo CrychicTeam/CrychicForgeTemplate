@@ -9,6 +9,7 @@
 ## 目录
 
 - [模板预置内容](#模板预置内容)
+- [版本与 API 基线](#版本与-api-基线)
 - [前置条件](#前置条件)
 - [快速开始](#快速开始)
 - [配置参考](#配置参考)
@@ -46,6 +47,28 @@
 - **TOML 依赖管理**：大多数额外依赖不需要再改 `build.gradle`
 
 > 这条分支不接受 `build.txt`、`template.toml`、`[platform]` 或 `-PtemplateProfile=...` 这一类旧入口。
+
+## 版本与 API 基线
+
+这条分支的版本来源是 `gradle/template-defaults.toml`，不是 Maven 最新版自动追随：
+
+- `mc_version = "26.1.2"`
+- `loader_version = "26.1.2.30-beta"`
+- `java = "25"`
+
+Gradle 自己可能用 Java 17 启动，所以配置阶段打印的 `Java: 17...` 不代表模组按 Java 17 编译。真正的编译版本来自 Gradle toolchain：`java.toolchain.languageVersion = JavaLanguageVersion.of(25)`。构建后可以用 `javap -verbose build/classes/java/main/...` 看到 Java 25 对应的 class major version `69`。
+
+如果要写 26.1.2 代码，优先看本项目 Gradle 已解析的源码：
+
+- `build/moddev/artifacts/minecraft-patched-26.1.2.30-beta-sources.jar`
+- Gradle cache 中的 `net.neoforged:neoforge:26.1.2.30-beta` sources jar
+
+几个容易从旧版迁移错的点：
+
+- 资源 ID 类型是 `net.minecraft.resources.Identifier`，不是旧代码里常见的 `ResourceLocation`。
+- `SavedData` 不再写旧式 `save(CompoundTag, HolderLookup.Provider)`；持久化数据走 `SavedDataType<T>` + `Codec<T>`，读取用 `SavedDataStorage#computeIfAbsent(TYPE)`。
+- chunk-local 自定义数据优先用 NeoForge data attachment；修改 `ChunkAccess` 上的 attachment 后调用 `markUnsaved()`。
+- `ChunkDataEvent` 携带 `SerializableChunkData`。`Load` 在主服务端线程触发且可安全访问 attachment；`Save` 在序列化之后触发，里面再改 attachment 不会进入本次保存。
 
 ## 前置条件
 
@@ -99,7 +122,7 @@ version_suffix = "hotfix.1"
 3. `src/templates/META-INF/neoforge.mods.toml`
 4. `src/templates/mixins.json`
 
-如果你的项目不用 Mixin，就删除示例 Mixin 和 `src/templates/mixins.json`。
+如果你的项目不用 Mixin，可以删除示例 `ExampleMixin.java`，但保留 `src/templates/mixins.json` 这个共享模板文件；当前 Gradle 流程会生成 `${mod_id}.mixins.json` 并把它挂进运行参数和 manifest。需要完全移除 Mixin 管线时，再同步调整 `build.gradle`。
 
 ### 4. 导入 Gradle 并构建一次
 
@@ -574,7 +597,7 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 
 ### `src/templates/mixins.json`
 
-共享的 Mixin 配置模板。
+共享的 Mixin 配置模板。当前 `build.gradle` 要求这个文件存在，并会由它生成 `${mod_id}.mixins.json`。
 
 ## 发布指南
 
@@ -654,6 +677,10 @@ dependencies {
 ### 为什么这条分支不用 `genIntellijRuns`？
 
 因为它已经切到了官方 `ModDevGradle` 流程。IDE 直接导入 Gradle 项目并同步即可。
+
+### 为什么 Gradle 打印 Java 17，但模板说用 Java 25？
+
+这是 Gradle 启动 JVM 和 Java toolchain 的区别。配置日志里的 Java 版本只说明 Gradle daemon 自己怎么启动；源码编译使用 `gradle/template-defaults.toml` 里的 `java = "25"`，并由 Gradle toolchain 选择或下载 JDK 25。
 
 ### `embedded_projects.*` 和 `mod_relations.embedded` 有什么区别？
 

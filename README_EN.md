@@ -9,6 +9,7 @@ English | [中文版](README.MD)
 ## Contents
 
 - [What You Get](#what-you-get)
+- [Version And API Baseline](#version-and-api-baseline)
 - [Prerequisites](#prerequisites)
 - [Quick Start](#quick-start)
 - [Configuration Reference](#configuration-reference)
@@ -46,6 +47,28 @@ Out of the box this branch already includes:
 - TOML-based repository and dependency management for most project needs
 
 > This branch does not use `build.txt`, `template.toml`, `[platform]`, or `-PtemplateProfile=...`.
+
+## Version And API Baseline
+
+This branch takes its version baseline from `gradle/template-defaults.toml`; it does not automatically chase the newest Maven release:
+
+- `mc_version = "26.1.2"`
+- `loader_version = "26.1.2.30-beta"`
+- `java = "25"`
+
+Gradle itself may still start on Java 17, so a configuration-time `Java: 17...` line does not mean the mod is compiled for Java 17. Compilation uses the Gradle toolchain: `java.toolchain.languageVersion = JavaLanguageVersion.of(25)`. After a build, `javap -verbose build/classes/java/main/...` should show class major version `69`, which is Java 25.
+
+For 26.1.2 code, prefer the sources Gradle resolved for this project:
+
+- `build/moddev/artifacts/minecraft-patched-26.1.2.30-beta-sources.jar`
+- the Gradle-cache sources jar for `net.neoforged:neoforge:26.1.2.30-beta`
+
+Common migration traps from older code:
+
+- Resource ids use `net.minecraft.resources.Identifier`, not the older `ResourceLocation` examples.
+- `SavedData` no longer uses the old `save(CompoundTag, HolderLookup.Provider)` override. Persistent data should use `SavedDataType<T>` plus a `Codec<T>`, and load through `SavedDataStorage#computeIfAbsent(TYPE)`.
+- Chunk-local custom data should normally be a NeoForge data attachment. After mutating an attachment on `ChunkAccess`, call `markUnsaved()`.
+- `ChunkDataEvent` carries `SerializableChunkData`. `Load` fires on the main server thread and can safely access attachments; `Save` fires after serialization, so attachment changes made there are not included in that save.
 
 ## Prerequisites
 
@@ -99,7 +122,7 @@ The first files you usually touch are:
 3. `src/templates/META-INF/neoforge.mods.toml`
 4. `src/templates/mixins.json`
 
-If your mod does not use Mixins, remove the sample mixin and `src/templates/mixins.json`.
+If your mod does not use Mixins, you can remove the sample `ExampleMixin.java`, but keep the shared `src/templates/mixins.json` template file. The current Gradle flow generates `${mod_id}.mixins.json` from it and wires that file into run arguments and the manifest. If you want to remove the Mixin pipeline entirely, adjust `build.gradle` at the same time.
 
 ### 4. Import Gradle and build once
 
@@ -574,7 +597,7 @@ The source template for `neoforge.mods.toml`. You only need to touch it when you
 
 ### `src/templates/mixins.json`
 
-The shared Mixin config template.
+The shared Mixin config template. The current `build.gradle` requires this file and generates `${mod_id}.mixins.json` from it.
 
 ## Publishing Guide
 
@@ -654,6 +677,10 @@ If downloads are slow on your machine, switch to a mirror locally and switch bac
 ### Why does this branch not use `genIntellijRuns`?
 
 Because it already uses the official `ModDevGradle` flow. Import the Gradle project and sync it in the IDE.
+
+### Why does Gradle print Java 17 when the template says Java 25?
+
+That is the difference between Gradle's launcher JVM and the Java toolchain. The configuration log only says how the Gradle daemon started; source compilation uses `java = "25"` from `gradle/template-defaults.toml`, and Gradle selects or downloads a JDK 25 toolchain.
 
 ### What is the difference between `embedded_projects.*` and `mod_relations.embedded`?
 
