@@ -173,7 +173,7 @@ release_type = "alpha"
 version_name = "[{mc_version}] {mod_name} {version}"
 display_name = "[{mc_version}] {mod_name} - {version}"
 changelog = ""
-# changelog_file = "CHANGELOG.md"
+changelog_file = "CHANGELOG.md"
 # version extracts only the current mod.version section; full uploads the whole file.
 changelog_section = "version"
 changelog_type = "markdown"
