@@ -860,30 +860,86 @@ artifacts {
     archives javadocJar
 }
 
-def configuredText = { String inlineText, String relativeFile, String fallbackText = "" ->
+def changelogHeadingVersion = { String headingText ->
+    def normalized = headingText
+        .trim()
+        .replaceFirst(/^\[([^\]]+)](?:\s*-\s*.*)?$/, '$1')
+        .replaceFirst(/^v(?=\d)/, "")
+        .trim()
+    normalized
+}
+
+def extractVersionChangelog = { String text, String version, String sourceLabel ->
+    def lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).toList()
+    def headingPattern = /^(#{1,6})\s+(.+?)\s*$/
+    def start = -1
+    def level = 0
+    def wanted = version.replaceFirst(/^v(?=\d)/, "")
+
+    lines.eachWithIndex { String line, int index ->
+        if (start >= 0) {
+            return
+        }
+        def matcher = line =~ headingPattern
+        if (matcher.matches() && changelogHeadingVersion(matcher[0][2]) == wanted) {
+            start = index + 1
+            level = matcher[0][1].length()
+        }
+    }
+
+    if (start < 0) {
+        throw new GradleException("Could not find changelog section for version ${version} in ${sourceLabel}")
+    }
+
+    def end = lines.size()
+    for (int index = start; index < lines.size(); index++) {
+        def matcher = lines[index] =~ headingPattern
+        if (matcher.matches() && matcher[0][1].length() <= level) {
+            end = index
+            break
+        }
+    }
+
+    def extracted = lines.subList(start, end).join("\n").trim()
+    if (extracted.isBlank()) {
+        throw new GradleException("Changelog section for version ${version} in ${sourceLabel} is empty")
+    }
+    extracted
+}
+
+def configuredText = { String inlineText, String relativeFile, String sectionMode, String fallbackText = "" ->
+    if (inlineText != null && !inlineText.isBlank()) {
+        return inlineText
+    }
     if (relativeFile != null && !relativeFile.isBlank()) {
         def source = file(relativeFile)
         if (!source.isFile()) {
             throw new GradleException("Configured publish text file does not exist: ${relativeFile}")
         }
-        return source.getText("UTF-8")
+        def text = source.getText("UTF-8")
+        if (sectionMode == "full") {
+            return text
+        }
+        return extractVersionChangelog(text, template.finalVersion, relativeFile)
     }
-    inlineText != null && !inlineText.isBlank() ? inlineText : fallbackText
+    fallbackText
 }
 
 def modrinthChangelogText = configuredText(
     template.publishModrinth.changelog,
     template.publishModrinth.changelogFile,
+    template.publishModrinth.changelogSection,
     "No changelog was specified."
 )
 def curseforgeChangelogText = configuredText(
     template.publishCurseforge.changelog,
     template.publishCurseforge.changelogFile,
+    template.publishCurseforge.changelogSection,
     ""
 )
 def modrinthBodyText = template.publishModrinth.syncBodyFile == null || template.publishModrinth.syncBodyFile.isBlank()
     ? ""
-    : configuredText("", template.publishModrinth.syncBodyFile, "")
+    : configuredText("", template.publishModrinth.syncBodyFile, "full", "")
 
 modrinth {
     token = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: "NONE"
@@ -1081,6 +1137,9 @@ def validateUploadConfiguration = tasks.register('validateUploadConfiguration') 
     group = "upload"
 
     doLast {
+        modrinthChangelogText
+        curseforgeChangelogText
+
         if (!hasModrinthTarget && !hasCurseforgeTarget) {
             throw new GradleException("At least one upload platform must be configured")
         }

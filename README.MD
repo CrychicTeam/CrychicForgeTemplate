@@ -564,6 +564,7 @@ release_type = "beta"
 version_name = "[{mc_version}] {mod_name} {version}"
 display_name = "[{mc_version}] {mod_name} - {version}"
 changelog_file = "CHANGELOG.md"
+changelog_section = "version"
 changelog_type = "markdown"
 game_versions = ["26.1.2"]
 loaders = ["neoforge"]
@@ -663,6 +664,28 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 
 - `project.toml` 里已经填 `[publish.modrinth].project` 或 `[publish.curseforge].project`
 - 环境变量或本机私有 TOML 中已经提供 token
+
+`changelog_file` 默认按“集合式 changelog”处理：`changelog_section = "version"` 会从 `CHANGELOG.md` 抽取当前 `mod.version` 或 `v{version}` 标题下的内容，例如：
+
+```markdown
+# Changelog
+
+## 1.2.0
+
+- Added publish config completion.
+
+## 1.1.0
+
+- Older changes.
+```
+
+如果当前版本段落不存在，上传配置会失败，避免误把整份历史日志发到平台。确实要整文件上传时设置：
+
+```toml
+[publish.mods]
+changelog_file = "CHANGELOG.md"
+changelog_section = "full"
+```
 
 也可以先只检查上传配置：
 

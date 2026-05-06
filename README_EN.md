@@ -564,6 +564,7 @@ release_type = "beta"
 version_name = "[{mc_version}] {mod_name} {version}"
 display_name = "[{mc_version}] {mod_name} - {version}"
 changelog_file = "CHANGELOG.md"
+changelog_section = "version"
 changelog_type = "markdown"
 game_versions = ["26.1.2"]
 loaders = ["neoforge"]
@@ -663,6 +664,28 @@ That assumes:
 
 - `[publish.modrinth].project` or `[publish.curseforge].project` is set in `project.toml`
 - the matching tokens are available through environment variables or `project.local.toml`
+
+By default, `changelog_file` is treated as a multi-version changelog: `changelog_section = "version"` extracts only the current `mod.version` or `v{version}` heading from `CHANGELOG.md`, for example:
+
+```markdown
+# Changelog
+
+## 1.2.0
+
+- Added publish config completion.
+
+## 1.1.0
+
+- Older changes.
+```
+
+If the current version section is missing, upload configuration fails so the full history is not sent by accident. To upload the whole file intentionally, set:
+
+```toml
+[publish.mods]
+changelog_file = "CHANGELOG.md"
+changelog_section = "full"
+```
 
 You can validate upload configuration without uploading:
 

@@ -239,6 +239,7 @@ def allowedPublishModsKeys = [
     "display_name",
     "changelog",
     "changelog_file",
+    "changelog_section",
     "changelog_type",
     "game_versions",
     "loaders"
@@ -249,6 +250,7 @@ def allowedPublishModrinthKeys = [
     "version_name",
     "changelog",
     "changelog_file",
+    "changelog_section",
     "game_versions",
     "loaders",
     "sync_body_file",
@@ -260,11 +262,13 @@ def allowedPublishCurseforgeKeys = [
     "display_name",
     "changelog",
     "changelog_file",
+    "changelog_section",
     "changelog_type",
     "game_versions",
     "manual_release",
     "parent_file_id"
 ] as Set
+def allowedChangelogSections = ["version", "full"] as Set
 
 def localFirstString = { String key, String defaultValue = "" ->
     def localValue = localPublishTable?.getString(key)
@@ -1057,6 +1061,7 @@ def publishModsSpec = [
     displayName  : renderTemplateString(optionalPublishString(publishModsTable, "display_name", "[{mc_version}] {mod_name} - {version}"), publishTokens, "publish.mods.display_name"),
     changelog    : optionalPublishString(publishModsTable, "changelog"),
     changelogFile: optionalPublishString(publishModsTable, "changelog_file"),
+    changelogSection: optionalPublishString(publishModsTable, "changelog_section", "version"),
     changelogType: optionalPublishString(publishModsTable, "changelog_type", "markdown"),
     gameVersions : publishModsGameVersions,
     loaders      : publishModsLoaders
@@ -1066,6 +1071,9 @@ if (!allowedReleaseTypes.contains(publishModsSpec.releaseType)) {
 }
 if (!(publishModsSpec.changelogType in ["text", "markdown", "html"])) {
     failConfig("publish.mods.changelog_type must be one of text, markdown, html")
+}
+if (!(publishModsSpec.changelogSection in allowedChangelogSections)) {
+    failConfig("publish.mods.changelog_section must be one of ${allowedChangelogSections.join(', ')}")
 }
 
 def modrinthProjectValue = optionalPublishString(publishModrinthTable, "project", optionalStringFromTable(publishTable, "modrinth_project"))
@@ -1083,11 +1091,15 @@ def publishModrinthSpec = [
     versionName : renderTemplateString(optionalPublishString(publishModrinthTable, "version_name", publishModsSpec.versionName), publishTokens, "publish.modrinth.version_name"),
     changelog   : optionalPublishString(publishModrinthTable, "changelog", publishModsSpec.changelog),
     changelogFile: optionalPublishString(publishModrinthTable, "changelog_file", publishModsSpec.changelogFile),
+    changelogSection: optionalPublishString(publishModrinthTable, "changelog_section", publishModsSpec.changelogSection),
     gameVersions: modrinthGameVersions,
     loaders     : modrinthLoaders,
     syncBodyFile: optionalPublishString(publishModrinthTable, "sync_body_file"),
     debug       : optionalBooleanFromTable(publishModrinthTable, "debug", false)
 ]
+if (!(publishModrinthSpec.changelogSection in allowedChangelogSections)) {
+    failConfig("publish.modrinth.changelog_section must be one of ${allowedChangelogSections.join(', ')}")
+}
 
 def curseforgeProjectValue = optionalPublishLong(publishCurseforgeTable, "project", optionalLongFromTable(publishTable, "curseforge_project", 0L))
 def curseforgeGameVersions = optionalStringLikeArrayFromTable(publishCurseforgeTable, "publish.curseforge.game_versions")
@@ -1100,6 +1112,7 @@ def publishCurseforgeSpec = [
     displayName : renderTemplateString(optionalPublishString(publishCurseforgeTable, "display_name", publishModsSpec.displayName), publishTokens, "publish.curseforge.display_name"),
     changelog   : optionalPublishString(publishCurseforgeTable, "changelog", publishModsSpec.changelog),
     changelogFile: optionalPublishString(publishCurseforgeTable, "changelog_file", publishModsSpec.changelogFile),
+    changelogSection: optionalPublishString(publishCurseforgeTable, "changelog_section", publishModsSpec.changelogSection),
     changelogType: optionalPublishString(publishCurseforgeTable, "changelog_type", publishModsSpec.changelogType == "html" ? "html" : "markdown"),
     gameVersions: curseforgeGameVersions,
     manualRelease: optionalBooleanFromTable(publishCurseforgeTable, "manual_release", false),
@@ -1107,6 +1120,9 @@ def publishCurseforgeSpec = [
 ]
 if (!(publishCurseforgeSpec.changelogType in ["text", "markdown", "html"])) {
     failConfig("publish.curseforge.changelog_type must be one of text, markdown, html")
+}
+if (!(publishCurseforgeSpec.changelogSection in allowedChangelogSections)) {
+    failConfig("publish.curseforge.changelog_section must be one of ${allowedChangelogSections.join(', ')}")
 }
 
 def resolveVersion = { String overrideKey, String defaultsKey ->
@@ -1336,6 +1352,7 @@ compatConfig.putAll([
     upload_display_name : template.publishMods.displayName,
     upload_changelog    : template.publishMods.changelog,
     upload_changelog_file: template.publishMods.changelogFile,
+    upload_changelog_section: template.publishMods.changelogSection,
     upload_changelog_type: template.publishMods.changelogType,
     upload_game_versions: template.publishMods.gameVersions.join(";"),
     upload_loaders      : template.publishMods.loaders.join(";"),
