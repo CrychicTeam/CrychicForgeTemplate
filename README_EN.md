@@ -542,14 +542,52 @@ old_renderer = { version_range = "*", reason = "Hooks the same render pipeline" 
 
 ### `[publish]` — publishing settings
 
-This block controls:
+Publishing is split into three layers:
 
-- `maven_url`
-- `curseforge_project`
-- `modrinth_project`
-- `release_type`
+- `[publish]`: Maven publishing and local/CI credential entry points
+- `[publish.mods]`: shared Modrinth / CurseForge version name, changelog, game versions, and release type
+- `[publish.modrinth]` / `[publish.curseforge]`: platform project IDs and platform-specific options
 
-Sensitive values should usually live in environment variables or `project.local.toml`.
+The default is `maven_url = ""`, so uploading to Modrinth / CurseForge is not blocked by Maven publishing. Only set this when you really want Maven publishing to run before platform upload:
+
+```toml
+[publish]
+maven_url = "https://maven.example.com/releases"
+publish_maven_before_upload = true
+```
+
+Platform upload example:
+
+```toml
+[publish.mods]
+release_type = "beta"
+version_name = "[{mc_version}] {mod_name} {version}"
+display_name = "[{mc_version}] {mod_name} - {version}"
+changelog_file = "CHANGELOG.md"
+changelog_type = "markdown"
+game_versions = ["26.1.2"]
+loaders = ["neoforge"]
+
+[publish.modrinth]
+project = "your-modrinth-slug-or-id"
+sync_body_file = "README.MD"
+
+[publish.curseforge]
+project = 123456
+game_versions = ["26.1.2", "NeoForge"]
+manual_release = false
+```
+
+Available template tokens:
+
+- `{mod_id}`
+- `{mod_name}`
+- `{version}`
+- `{mc_version}`
+- `{loader}`
+- `{archive_name}`
+
+Sensitive values should usually live in environment variables or `project.local.toml`:
 
 Common environment variables:
 
@@ -613,7 +651,7 @@ The shared Mixin config template. The current `build.gradle` requires this file 
 ./gradlew publish
 ```
 
-That requires `publish.maven_url` or `MAVEN_URL`, plus credentials when the repository needs them.
+That requires `publish.maven_url` or `MAVEN_URL`, plus credentials when the repository needs them. Leave `maven_url` blank when you only want Modrinth / CurseForge uploads.
 
 ### Upload to Modrinth / CurseForge
 
@@ -623,8 +661,14 @@ That requires `publish.maven_url` or `MAVEN_URL`, plus credentials when the repo
 
 That assumes:
 
-- the corresponding project ids are already set in `project.toml`
+- `[publish.modrinth].project` or `[publish.curseforge].project` is set in `project.toml`
 - the matching tokens are available through environment variables or `project.local.toml`
+
+You can validate upload configuration without uploading:
+
+```bash
+./gradlew validateUploadConfiguration
+```
 
 ## Artifacts
 

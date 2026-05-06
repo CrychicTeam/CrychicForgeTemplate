@@ -166,6 +166,11 @@ def featureSupportTable = defaultsParsed.getTable("feature_support")
 def localRunTable = localParsed?.getTable("run")
 def localBuildTable = localParsed?.getTable("build")
 def localPublishTable = localParsed?.getTable("publish")
+def localPublishModrinthTable = localPublishTable?.getTable("modrinth")
+def localPublishCurseforgeTable = localPublishTable?.getTable("curseforge")
+def publishModsTable = publishTable.getTable("mods")
+def publishModrinthTable = publishTable.getTable("modrinth")
+def publishCurseforgeTable = publishTable.getTable("curseforge")
 
 // project.toml is intentionally small at the top level so authors can see the
 // supported surface at a glance and configuration errors stay fail-fast.
@@ -213,6 +218,53 @@ def allowedRelationBuckets = ["required", "optional", "incompatible", "discourag
 def allowedDisplayTests = ["MATCH_VERSION", "IGNORE_SERVER_VERSION", "IGNORE_ALL_VERSION", "NONE"] as Set
 def allowedRelationOrderings = ["NONE", "BEFORE", "AFTER"] as Set
 def allowedRelationSides = ["BOTH", "CLIENT", "SERVER"] as Set
+def allowedPublishKeys = [
+    "maven_url",
+    "maven_user",
+    "maven_password",
+    "publish_maven_before_upload",
+    "mods",
+    "modrinth",
+    "curseforge",
+    // Legacy flat keys. Kept so existing projects continue to load.
+    "curseforge_project",
+    "modrinth_project",
+    "release_type",
+    "modrinth_token",
+    "curseforge_token"
+] as Set
+def allowedPublishModsKeys = [
+    "release_type",
+    "version_name",
+    "display_name",
+    "changelog",
+    "changelog_file",
+    "changelog_type",
+    "game_versions",
+    "loaders"
+] as Set
+def allowedPublishModrinthKeys = [
+    "project",
+    "token",
+    "version_name",
+    "changelog",
+    "changelog_file",
+    "game_versions",
+    "loaders",
+    "sync_body_file",
+    "debug"
+] as Set
+def allowedPublishCurseforgeKeys = [
+    "project",
+    "token",
+    "display_name",
+    "changelog",
+    "changelog_file",
+    "changelog_type",
+    "game_versions",
+    "manual_release",
+    "parent_file_id"
+] as Set
 
 def localFirstString = { String key, String defaultValue = "" ->
     def localValue = localPublishTable?.getString(key)
@@ -220,6 +272,14 @@ def localFirstString = { String key, String defaultValue = "" ->
         return localValue
     }
     optionalStringFromTable(publishTable, key, defaultValue)
+}
+
+def platformLocalFirstString = { def localPlatformTable, String flatKey, String nestedKey, String defaultValue = "" ->
+    def nestedLocalValue = localPlatformTable?.getString(nestedKey)
+    if (nestedLocalValue != null) {
+        return nestedLocalValue
+    }
+    localFirstString(flatKey, defaultValue)
 }
 
 def optionalStringArrayFromTable = { def table, String key ->
@@ -237,6 +297,28 @@ def optionalStringArrayFromTable = { def table, String key ->
     }
 }
 
+def optionalStringLikeArrayFromTable = { def table, String key ->
+    def array = table == null ? null : table.getArray(key)
+    if (array == null) {
+        return []
+    }
+
+    (0..<array.size()).collect { int index ->
+        def value
+        if (array.isString(index)) {
+            value = array.getString(index)
+        } else if (array.isLong(index)) {
+            value = array.getLong(index).toString()
+        } else {
+            failConfig("Expected string or integer array entries in ${key}")
+        }
+        if (value == null || value.isBlank()) {
+            failConfig("Expected non-empty array entries in ${key}")
+        }
+        value
+    }
+}
+
 templateParsed.dottedKeySet().collect { it.split("\\.")[0] }.unique().each { key ->
     if (!allowedTopLevel.contains(key)) {
         failConfig("Unknown top-level key: ${key}")
@@ -249,6 +331,33 @@ featuresTable.keySet().each { key ->
     }
     if ((featuresTable.getBoolean(key) ?: false) && !supportedFeatures.contains(key)) {
         failConfig("feature ${key} is not available on this branch")
+    }
+}
+
+publishTable.keySet().each { key ->
+    if (!allowedPublishKeys.contains(key)) {
+        failConfig("Unknown publish key: ${key}")
+    }
+}
+if (publishModsTable != null) {
+    publishModsTable.keySet().each { key ->
+        if (!allowedPublishModsKeys.contains(key)) {
+            failConfig("Unknown publish.mods key: ${key}")
+        }
+    }
+}
+if (publishModrinthTable != null) {
+    publishModrinthTable.keySet().each { key ->
+        if (!allowedPublishModrinthKeys.contains(key)) {
+            failConfig("Unknown publish.modrinth key: ${key}")
+        }
+    }
+}
+if (publishCurseforgeTable != null) {
+    publishCurseforgeTable.keySet().each { key ->
+        if (!allowedPublishCurseforgeKeys.contains(key)) {
+            failConfig("Unknown publish.curseforge key: ${key}")
+        }
     }
 }
 
@@ -841,10 +950,10 @@ def versionSuffix = optionalStringFromTable(modTable, "version_suffix")
 def finalVersion = versionSuffix.isBlank() ? baseVersion : "${baseVersion}-${versionSuffix}"
 def archiveName = expectStringFromTable(namingTable, "archive_name", "naming")
 def authors = expectStringArray(modTable, "authors", "mod")
-def releaseType = publishTable.getString("release_type")
 def allowedReleaseTypes = ["alpha", "beta", "release"] as Set
+def releaseType = optionalStringFromTable(publishTable, "release_type", "alpha")
 if (!allowedReleaseTypes.contains(releaseType)) {
-    failConfig("Unsupported release_type: ${releaseType}")
+    failConfig("publish.release_type must be one of ${allowedReleaseTypes.join(', ')}")
 }
 
 def mcVersion = expectStringFromTable(platformTable, "mc_version", "platform")
@@ -884,6 +993,24 @@ def renderJarFormat = { String format, Map<String, String> tokens ->
     rendered
 }
 
+def renderTemplateString = { String value, Map<String, String> tokens, String path ->
+    if (value == null || value.isBlank()) {
+        return value ?: ""
+    }
+    def matcher = (value =~ /\{([^}]+)\}/)
+    matcher.each { match ->
+        def token = match[1]
+        if (!tokens.containsKey(token)) {
+            failConfig("Unsupported token ${token} in ${path}")
+        }
+    }
+    def rendered = value
+    tokens.each { token, tokenValue ->
+        rendered = rendered.replace("{${token}}", tokenValue)
+    }
+    rendered
+}
+
 def renderedArchiveStem = renderJarFormat(
     namingTable.getString("jar_format") ?: "{archive_name}-{mc_version}-{version}",
     [
@@ -894,6 +1021,93 @@ def renderedArchiveStem = renderJarFormat(
         loader      : loader
     ]
 )
+
+def publishTokens = [
+    archive_name: archiveName,
+    mod_id      : modId,
+    mod_name    : modName,
+    version     : finalVersion,
+    mc_version  : mcVersion,
+    loader      : loader
+]
+
+def optionalPublishString = { def table, String key, String defaultValue = "" ->
+    def value = table == null ? null : table.getString(key)
+    value != null ? value : defaultValue
+}
+
+def optionalPublishLong = { def table, String key, long defaultValue = 0L ->
+    def value = table == null ? null : table.getLong(key)
+    value != null ? value : defaultValue
+}
+
+def publishModsReleaseType = optionalPublishString(publishModsTable, "release_type", publishTable.getString("release_type") ?: "alpha")
+def publishModsGameVersions = optionalStringLikeArrayFromTable(publishModsTable, "publish.mods.game_versions")
+if (publishModsGameVersions.isEmpty()) {
+    publishModsGameVersions = [mcVersion]
+}
+def publishModsLoaders = optionalStringLikeArrayFromTable(publishModsTable, "publish.mods.loaders")
+if (publishModsLoaders.isEmpty()) {
+    publishModsLoaders = [loader]
+}
+
+def publishModsSpec = [
+    releaseType  : publishModsReleaseType,
+    versionName  : renderTemplateString(optionalPublishString(publishModsTable, "version_name", "[{mc_version}] {mod_name} {version}"), publishTokens, "publish.mods.version_name"),
+    displayName  : renderTemplateString(optionalPublishString(publishModsTable, "display_name", "[{mc_version}] {mod_name} - {version}"), publishTokens, "publish.mods.display_name"),
+    changelog    : optionalPublishString(publishModsTable, "changelog"),
+    changelogFile: optionalPublishString(publishModsTable, "changelog_file"),
+    changelogType: optionalPublishString(publishModsTable, "changelog_type", "markdown"),
+    gameVersions : publishModsGameVersions,
+    loaders      : publishModsLoaders
+]
+if (!allowedReleaseTypes.contains(publishModsSpec.releaseType)) {
+    failConfig("publish.mods.release_type must be one of ${allowedReleaseTypes.join(', ')}")
+}
+if (!(publishModsSpec.changelogType in ["text", "markdown", "html"])) {
+    failConfig("publish.mods.changelog_type must be one of text, markdown, html")
+}
+
+def modrinthProjectValue = optionalPublishString(publishModrinthTable, "project", optionalStringFromTable(publishTable, "modrinth_project"))
+def modrinthGameVersions = optionalStringLikeArrayFromTable(publishModrinthTable, "publish.modrinth.game_versions")
+if (modrinthGameVersions.isEmpty()) {
+    modrinthGameVersions = publishModsSpec.gameVersions
+}
+def modrinthLoaders = optionalStringLikeArrayFromTable(publishModrinthTable, "publish.modrinth.loaders")
+if (modrinthLoaders.isEmpty()) {
+    modrinthLoaders = publishModsSpec.loaders
+}
+def publishModrinthSpec = [
+    project     : modrinthProjectValue,
+    token       : platformLocalFirstString(localPublishModrinthTable, "modrinth_token", "token", optionalPublishString(publishModrinthTable, "token")),
+    versionName : renderTemplateString(optionalPublishString(publishModrinthTable, "version_name", publishModsSpec.versionName), publishTokens, "publish.modrinth.version_name"),
+    changelog   : optionalPublishString(publishModrinthTable, "changelog", publishModsSpec.changelog),
+    changelogFile: optionalPublishString(publishModrinthTable, "changelog_file", publishModsSpec.changelogFile),
+    gameVersions: modrinthGameVersions,
+    loaders     : modrinthLoaders,
+    syncBodyFile: optionalPublishString(publishModrinthTable, "sync_body_file"),
+    debug       : optionalBooleanFromTable(publishModrinthTable, "debug", false)
+]
+
+def curseforgeProjectValue = optionalPublishLong(publishCurseforgeTable, "project", optionalLongFromTable(publishTable, "curseforge_project", 0L))
+def curseforgeGameVersions = optionalStringLikeArrayFromTable(publishCurseforgeTable, "publish.curseforge.game_versions")
+if (curseforgeGameVersions.isEmpty()) {
+    curseforgeGameVersions = publishModsSpec.gameVersions + [publishLoader]
+}
+def publishCurseforgeSpec = [
+    project     : curseforgeProjectValue,
+    token       : platformLocalFirstString(localPublishCurseforgeTable, "curseforge_token", "token", optionalPublishString(publishCurseforgeTable, "token")),
+    displayName : renderTemplateString(optionalPublishString(publishCurseforgeTable, "display_name", publishModsSpec.displayName), publishTokens, "publish.curseforge.display_name"),
+    changelog   : optionalPublishString(publishCurseforgeTable, "changelog", publishModsSpec.changelog),
+    changelogFile: optionalPublishString(publishCurseforgeTable, "changelog_file", publishModsSpec.changelogFile),
+    changelogType: optionalPublishString(publishCurseforgeTable, "changelog_type", publishModsSpec.changelogType == "html" ? "html" : "markdown"),
+    gameVersions: curseforgeGameVersions,
+    manualRelease: optionalBooleanFromTable(publishCurseforgeTable, "manual_release", false),
+    parentFileId : optionalPublishLong(publishCurseforgeTable, "parent_file_id", 0L)
+]
+if (!(publishCurseforgeSpec.changelogType in ["text", "markdown", "html"])) {
+    failConfig("publish.curseforge.changelog_type must be one of text, markdown, html")
+}
 
 def resolveVersion = { String overrideKey, String defaultsKey ->
     def overrideValue = overridesTable?.getString(overrideKey)
@@ -921,14 +1135,18 @@ ext.template = [
     issueTracker   : optionalStringFromTable(modTable, "issue_tracker_url"),
     archiveName    : archiveName,
     renderedArchiveStem: renderedArchiveStem,
-    releaseType    : releaseType,
+    releaseType    : publishModsSpec.releaseType,
     mavenUrl       : localFirstString("maven_url"),
     mavenUser      : localFirstString("maven_user"),
     mavenPassword  : localFirstString("maven_password"),
-    modrinthToken  : localFirstString("modrinth_token"),
-    curseforgeToken: localFirstString("curseforge_token"),
-    curseforgeProject: optionalLongFromTable(publishTable, "curseforge_project", 0L),
-    modrinthProject: optionalStringFromTable(publishTable, "modrinth_project")
+    publishMavenBeforeUpload: optionalBooleanFromTable(publishTable, "publish_maven_before_upload", false),
+    modrinthToken  : publishModrinthSpec.token,
+    curseforgeToken: publishCurseforgeSpec.token,
+    curseforgeProject: publishCurseforgeSpec.project,
+    modrinthProject: publishModrinthSpec.project,
+    publishMods    : publishModsSpec,
+    publishModrinth: publishModrinthSpec,
+    publishCurseforge: publishCurseforgeSpec
 ]
 
 ext.templatePlatform = [
@@ -1113,6 +1331,14 @@ compatConfig.putAll([
     modrinth_token      : template.modrinthToken,
     curseforge_token    : template.curseforgeToken,
     release_type        : template.releaseType,
+    publish_maven_before_upload: template.publishMavenBeforeUpload.toString(),
+    upload_version_name : template.publishMods.versionName,
+    upload_display_name : template.publishMods.displayName,
+    upload_changelog    : template.publishMods.changelog,
+    upload_changelog_file: template.publishMods.changelogFile,
+    upload_changelog_type: template.publishMods.changelogType,
+    upload_game_versions: template.publishMods.gameVersions.join(";"),
+    upload_loaders      : template.publishMods.loaders.join(";"),
     required_mods       : serializePlatformRelationList("required", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),
     optional_mods       : serializePlatformRelationList("optional", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),
     incompatible_mods   : serializePlatformRelationList("incompatible", [[key: "modrinthProject", prefix: "m"], [key: "curseforgeProject", prefix: "c"]]),

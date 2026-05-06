@@ -13,5 +13,14 @@ formal_version = false
 # maven_url = "https://maven.example.com/releases"
 # maven_user = ""
 # maven_password = ""
+# Legacy flat token keys are still accepted:
 # modrinth_token = ""
 # curseforge_token = ""
+
+# Platform-local token keys are also accepted and keep credentials close to
+# the matching project id in project.toml.
+# [publish.modrinth]
+# token = ""
+#
+# [publish.curseforge]
+# token = ""

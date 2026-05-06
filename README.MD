@@ -542,14 +542,52 @@ old_renderer = { version_range = "*", reason = "Hooks the same render pipeline" 
 
 ### `[publish]` — 发布配置
 
-这里控制：
+这块分成三层：
 
-- `maven_url`
-- `curseforge_project`
-- `modrinth_project`
-- `release_type`
+- `[publish]`：Maven 发布和本机/CI 凭据入口
+- `[publish.mods]`：Modrinth / CurseForge 共用的版本名、日志、游戏版本和 release type
+- `[publish.modrinth]` / `[publish.curseforge]`：各平台项目 ID 和平台专属选项
 
-敏感信息优先放环境变量，或者放到 `project.local.toml`。
+默认 `maven_url = ""`，所以只上传 Modrinth / CurseForge 不会被 Maven 发布卡住。只有你确实要先发布 Maven，再上传平台，才设置：
+
+```toml
+[publish]
+maven_url = "https://maven.example.com/releases"
+publish_maven_before_upload = true
+```
+
+平台上传示例：
+
+```toml
+[publish.mods]
+release_type = "beta"
+version_name = "[{mc_version}] {mod_name} {version}"
+display_name = "[{mc_version}] {mod_name} - {version}"
+changelog_file = "CHANGELOG.md"
+changelog_type = "markdown"
+game_versions = ["26.1.2"]
+loaders = ["neoforge"]
+
+[publish.modrinth]
+project = "your-modrinth-slug-or-id"
+sync_body_file = "README.MD"
+
+[publish.curseforge]
+project = 123456
+game_versions = ["26.1.2", "NeoForge"]
+manual_release = false
+```
+
+可用模板 token：
+
+- `{mod_id}`
+- `{mod_name}`
+- `{version}`
+- `{mc_version}`
+- `{loader}`
+- `{archive_name}`
+
+敏感信息优先放环境变量，或者放到 `project.local.toml`：
 
 常用环境变量：
 
@@ -613,7 +651,7 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 ./gradlew publish
 ```
 
-前提是已经配置好 `publish.maven_url` 或 `MAVEN_URL`，以及对应认证。
+前提是已经配置好 `publish.maven_url` 或 `MAVEN_URL`，以及对应认证。只想发 Modrinth / CurseForge 时不要填 `maven_url`。
 
 ### 上传到 Modrinth / CurseForge
 
@@ -623,8 +661,14 @@ jar_format = "{archive_name}-{mc_version}-{version}"
 
 前提是：
 
-- `project.toml` 里已经填对应项目 ID
+- `project.toml` 里已经填 `[publish.modrinth].project` 或 `[publish.curseforge].project`
 - 环境变量或本机私有 TOML 中已经提供 token
+
+也可以先只检查上传配置：
+
+```bash
+./gradlew validateUploadConfiguration
+```
 
 ## 产物说明
 

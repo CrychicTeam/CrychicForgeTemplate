@@ -87,7 +87,8 @@ def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
 def hasModrinthTarget = !template.modrinthProject.isBlank()
 def hasCurseforgeTarget = template.curseforgeProject > 0L
-def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
+def hasMavenPublishTarget = !template.mavenUrl.isBlank()
+def curseforgeUploadTaskName = "uploadCurseForge"
 def runtimeDistributionJar = tasks.named("jar", Jar).flatMap { it.archiveFile }
 def metadataTemplateDir = file("src/templates")
 def mixinTemplateFile = file("src/templates/mixins.json")
@@ -859,14 +860,46 @@ artifacts {
     archives javadocJar
 }
 
+def configuredText = { String inlineText, String relativeFile, String fallbackText = "" ->
+    if (relativeFile != null && !relativeFile.isBlank()) {
+        def source = file(relativeFile)
+        if (!source.isFile()) {
+            throw new GradleException("Configured publish text file does not exist: ${relativeFile}")
+        }
+        return source.getText("UTF-8")
+    }
+    inlineText != null && !inlineText.isBlank() ? inlineText : fallbackText
+}
+
+def modrinthChangelogText = configuredText(
+    template.publishModrinth.changelog,
+    template.publishModrinth.changelogFile,
+    "No changelog was specified."
+)
+def curseforgeChangelogText = configuredText(
+    template.publishCurseforge.changelog,
+    template.publishCurseforge.changelogFile,
+    ""
+)
+def modrinthBodyText = template.publishModrinth.syncBodyFile == null || template.publishModrinth.syncBodyFile.isBlank()
+    ? ""
+    : configuredText("", template.publishModrinth.syncBodyFile, "")
+
 modrinth {
     token = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: "NONE"
     projectId = template.modrinthProject
     versionNumber = template.finalVersion
+    versionName = template.publishModrinth.versionName
+    changelog = modrinthChangelogText
     versionType = template.releaseType
     uploadFile = runtimeDistributionJar.get().asFile
-    gameVersions = [templatePlatform.mcVersion]
-    loaders = [templatePlatform.publishLoader]
+    gameVersions = template.publishModrinth.gameVersions
+    loaders = template.publishModrinth.loaders
+    detectLoaders = false
+    debugMode = template.publishModrinth.debug
+    if (!modrinthBodyText.isBlank()) {
+        syncBodyFrom = modrinthBodyText
+    }
     dependencies {
         def mods = config.required_mods.split(";")
         if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
@@ -980,12 +1013,18 @@ tasks.register(curseforgeUploadTaskName) {
         }
 
         def metadata = [
-            changelog    : "",
-            changelogType: "html",
-            displayName  : "[${templatePlatform.mcVersion}] ${template.modName} - ${template.finalVersion}",
-            gameVersions : [templatePlatform.mcVersion, templatePlatform.publishLoader],
+            changelog    : curseforgeChangelogText,
+            changelogType: template.publishCurseforge.changelogType,
+            displayName  : template.publishCurseforge.displayName,
+            gameVersions : template.publishCurseforge.gameVersions,
             releaseType  : template.releaseType
         ]
+        if (template.publishCurseforge.manualRelease) {
+            metadata.isManualRelease = true
+        }
+        if (template.publishCurseforge.parentFileId > 0L) {
+            metadata.parentFileID = template.publishCurseforge.parentFileId
+        }
         if (!relations.isEmpty()) {
             metadata.relations = [projects: relations]
         }
@@ -1052,12 +1091,12 @@ def validateUploadConfiguration = tasks.register('validateUploadConfiguration') 
 
         def modrinthToken = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: ""
         if (hasModrinthTarget && !modrinthToken.trim()) {
-            throw new GradleException("MODRINTH_TOKEN or publish.modrinth_token is required when modrinth_project is configured")
+            throw new GradleException("MODRINTH_TOKEN or publish.modrinth.token or publish.modrinth_token is required when Modrinth publishing is configured")
         }
 
         def curseforgeToken = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
         if (hasCurseforgeTarget && !curseforgeToken.trim()) {
-            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge_token is required when curseforge_project is configured")
+            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge.token or publish.curseforge_token is required when CurseForge publishing is configured")
         }
     }
 }
@@ -1091,11 +1130,17 @@ tasks.register('buildAndUploadMod') {
 }
 
 afterEvaluate {
-    if (!template.mavenUrl.isBlank() && hasModrinthTarget) {
+    if (template.publishMavenBeforeUpload && hasMavenPublishTarget && hasModrinthTarget) {
         tasks["modrinth"].dependsOn.add(publish)
     }
-    if (!template.mavenUrl.isBlank() && hasCurseforgeTarget) {
+    if (template.publishMavenBeforeUpload && hasMavenPublishTarget && hasCurseforgeTarget) {
         tasks[curseforgeUploadTaskName].dependsOn.add(publish)
+    }
+    if (hasModrinthTarget && !modrinthBodyText.isBlank()) {
+        tasks.matching { it.name == "modrinthSyncBody" }.configureEach {
+            dependsOn(validateUploadConfiguration)
+        }
+        tasks["buildAndUploadMod"].dependsOn.add("modrinthSyncBody")
     }
 }
 

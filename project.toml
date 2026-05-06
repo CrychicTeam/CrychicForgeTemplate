@@ -137,8 +137,11 @@ jitpack = "https://jitpack.io"
 # helperlib = { modrinth = "example", curseforge = "123456" }
 
 [publish]
-# Leave blank for local-only publishing. MAVEN_URL can override this in CI.
-maven_url = "https://maven.mihono.cn/repository/pickaid261/"
+# Leave blank unless this project publishes Maven artifacts.
+# MAVEN_URL can override this in CI.
+maven_url = ""
+# Keep false when you only want to upload the mod jar to Modrinth/CurseForge.
+publish_maven_before_upload = false
 # Local machine settings should normally go in project.local.toml instead:
 # - [run].mc_user
 # - [publish].maven_user / maven_password / modrinth_token / curseforge_token
@@ -158,9 +161,46 @@ maven_url = "https://maven.mihono.cn/repository/pickaid261/"
 # maven_password = ""
 # modrinth_token = ""
 # curseforge_token = ""
-curseforge_project = 0
-modrinth_project = ""
+# Legacy flat keys are still accepted:
+# curseforge_project = 0
+# modrinth_project = ""
+# release_type = "alpha"
+
+[publish.mods]
+# Shared defaults for Modrinth and CurseForge uploads.
+# Supported tokens: {mod_id}, {mod_name}, {version}, {mc_version}, {loader}, {archive_name}
 release_type = "alpha"
+version_name = "[{mc_version}] {mod_name} {version}"
+display_name = "[{mc_version}] {mod_name} - {version}"
+changelog = ""
+# changelog_file = "CHANGELOG.md"
+changelog_type = "markdown"
+game_versions = ["26.1.2"]
+loaders = ["neoforge"]
+
+[publish.modrinth]
+# Project slug or id. Leave blank to skip Modrinth.
+project = ""
+# token = ""
+# version_name = "[{mc_version}] {mod_name} {version}"
+# changelog = ""
+# changelog_file = "CHANGELOG.md"
+# game_versions = ["26.1.2"]
+# loaders = ["neoforge"]
+# sync_body_file = "README.MD"
+# debug = true
+
+[publish.curseforge]
+# Numeric CurseForge project id. Leave as 0 to skip CurseForge.
+project = 0
+# token = ""
+# display_name = "[{mc_version}] {mod_name} - {version}"
+# changelog = ""
+# changelog_file = "CHANGELOG.md"
+# changelog_type = "markdown"
+# game_versions = ["26.1.2", "NeoForge"]
+# manual_release = false
+# parent_file_id = 0
 
 [naming]
 archive_name = "example"
