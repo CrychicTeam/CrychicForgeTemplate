@@ -181,6 +181,46 @@ modrinth_project = ""
 # release_type: alpha, beta, release
 release_type = "alpha"
 
+[publish.mods]
+# Shared defaults for Modrinth and CurseForge uploads.
+# Supported tokens: {mod_id}, {mod_name}, {version}, {mc_version}, {loader}, {archive_name}
+release_type = "alpha"
+version_name = "[{mc_version}] {mod_name} {version}"
+display_name = "[{mc_version}] {mod_name} - {version}"
+changelog = ""
+changelog_file = "CHANGELOG.md"
+# version extracts only the current mod.version section; full uploads the whole file.
+changelog_section = "version"
+changelog_type = "markdown"
+game_versions = ["1.19.2"]
+loaders = ["forge"]
+
+[publish.modrinth]
+# Project slug or id. Leave blank to skip Modrinth.
+project = ""
+# token = ""
+# version_name = "[{mc_version}] {mod_name} {version}"
+# changelog = ""
+# changelog_file = "CHANGELOG.md"
+# changelog_section = "version"
+# game_versions = ["1.19.2"]
+# loaders = ["forge"]
+# sync_body_file = "README.MD"
+# debug = false
+
+[publish.curseforge]
+# Numeric project id. Leave 0 to skip CurseForge.
+project = 0
+# token = ""
+# display_name = "[{mc_version}] {mod_name} - {version}"
+# changelog = ""
+# changelog_file = "CHANGELOG.md"
+# changelog_section = "version"
+# changelog_type = "markdown"
+# game_versions = ["1.19.2", "Forge"]
+# manual_release = false
+# parent_file_id = 0
+
 [naming]
 archive_name = "example"
 jar_format = "{archive_name}-{mc_version}-{version}"
