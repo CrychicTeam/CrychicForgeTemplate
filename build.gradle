@@ -52,7 +52,6 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath "gradle.plugin.com.matthewprenger:CurseGradle:1.4.+"
         classpath "org.tomlj:tomlj:1.1.1"
         if (isTemplateLanguageEnabled("kotlin")) {
             classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${kotlinPluginVersion}"
@@ -68,7 +67,6 @@ plugins {
 
 apply plugin: 'idea'
 apply plugin: 'maven-publish'
-apply plugin: "com.matthewprenger.cursegradle"
 apply from: 'gradle/template-config.gradle'
 
 def template = project.ext.template
@@ -88,7 +86,7 @@ def templateAuthors = template.authors.join(", ")
 def renderedArchiveStem = template.renderedArchiveStem
 def hasModrinthTarget = !template.modrinthProject.isBlank()
 def hasCurseforgeTarget = template.curseforgeProject > 0L
-def curseforgeUploadTaskName = "curseforge${template.curseforgeProject}"
+def curseforgeUploadTaskName = "uploadCurseForge"
 def runtimeDistributionJar = layout.buildDirectory.file("libs/${renderedArchiveStem}.jar")
 def mixinRefmapMappings = layout.buildDirectory.file("mixin/${template.modId}.refmap.json.mappings.tsrg")
 def mdgNamedToIntermediate = layout.buildDirectory.file("moddev/artifacts/namedToIntermediate.tsrg")
@@ -642,15 +640,103 @@ artifacts {
     archives javadocJar
 }
 
+def changelogHeadingVersion = { String headingText ->
+    def normalized = headingText
+        .trim()
+        .replaceFirst(/^\[([^\]]+)](?:\s*-\s*.*)?$/, '$1')
+        .replaceFirst(/^v(?=\d)/, "")
+        .trim()
+    normalized
+}
+
+def extractVersionChangelog = { String text, String version, String sourceLabel ->
+    def lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n", -1).toList()
+    def headingPattern = /^(#{1,6})\s+(.+?)\s*$/
+    def start = -1
+    def level = 0
+    def wanted = version.replaceFirst(/^v(?=\d)/, "")
+
+    lines.eachWithIndex { String line, int index ->
+        if (start >= 0) {
+            return
+        }
+        def matcher = line =~ headingPattern
+        if (matcher.matches() && changelogHeadingVersion(matcher[0][2]) == wanted) {
+            start = index + 1
+            level = matcher[0][1].length()
+        }
+    }
+
+    if (start < 0) {
+        throw new GradleException("Could not find changelog section for version ${version} in ${sourceLabel}")
+    }
+
+    def end = lines.size()
+    for (int index = start; index < lines.size(); index++) {
+        def matcher = lines[index] =~ headingPattern
+        if (matcher.matches() && matcher[0][1].length() <= level) {
+            end = index
+            break
+        }
+    }
+
+    def extracted = lines.subList(start, end).join("\n").trim()
+    if (extracted.isBlank()) {
+        throw new GradleException("Changelog section for version ${version} in ${sourceLabel} is empty")
+    }
+    extracted
+}
+
+def configuredText = { String inlineText, String relativeFile, String sectionMode, String fallbackText = "" ->
+    if (inlineText != null && !inlineText.isBlank()) {
+        return inlineText
+    }
+    if (relativeFile != null && !relativeFile.isBlank()) {
+        def source = file(relativeFile)
+        if (!source.isFile()) {
+            throw new GradleException("Configured publish text file does not exist: ${relativeFile}")
+        }
+        def text = source.getText("UTF-8")
+        if (sectionMode == "full") {
+            return text
+        }
+        return extractVersionChangelog(text, template.finalVersion, relativeFile)
+    }
+    fallbackText
+}
+
+def modrinthChangelogText = configuredText(
+    template.publishModrinth.changelog,
+    template.publishModrinth.changelogFile,
+    template.publishModrinth.changelogSection,
+    "No changelog was specified."
+)
+def curseforgeChangelogText = configuredText(
+    template.publishCurseforge.changelog,
+    template.publishCurseforge.changelogFile,
+    template.publishCurseforge.changelogSection,
+    ""
+)
+def modrinthBodyText = template.publishModrinth.syncBodyFile == null || template.publishModrinth.syncBodyFile.isBlank()
+    ? ""
+    : configuredText("", template.publishModrinth.syncBodyFile, "full", "")
+
 modrinth {
     token = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: "NONE"
     projectId = template.modrinthProject
     versionNumber = template.finalVersion
+    versionName = template.publishModrinth.versionName
+    changelog = modrinthChangelogText
     versionType = template.releaseType
     // Platform uploads always ship the reobfuscated runtime jar.
     uploadFile = runtimeDistributionJar.get().asFile
-    gameVersions = [templatePlatform.mcVersion]
-    loaders = [templatePlatform.publishLoader]
+    gameVersions = template.publishModrinth.gameVersions
+    loaders = template.publishModrinth.loaders
+    detectLoaders = false
+    debugMode = template.publishModrinth.debug
+    if (!modrinthBodyText.isBlank()) {
+        syncBodyFrom = modrinthBodyText
+    }
     dependencies {
         def mods = config.required_mods.split(";")
         if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
@@ -706,92 +792,102 @@ modrinth {
     }
 }
 
-curseforge {
-    apiKey = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: "NONE"
-    project {
-        id = "${template.curseforgeProject}"
-        changelogType = 'html'
-        changelog = ""
-        releaseType = template.releaseType
-        addGameVersion templatePlatform.mcVersion
-        addGameVersion templatePlatform.publishLoader
-        mainArtifact(runtimeDistributionJar.get().asFile) {
-            displayName = "[${templatePlatform.mcVersion}] ${template.modName} - ${template.finalVersion}"
+def curseforgeRelationSlugs = { String relationKey ->
+    def raw = config[relationKey]
+    if (raw == null || raw.toString().isBlank()) {
+        return []
+    }
+
+    raw.toString()
+        .split(";")
+        .collect { it.trim() }
+        .findAll { !it.isBlank() }
+        .collect { entry ->
+            if (!entry.startsWith("@")) {
+                return entry
+            }
+            def parts = entry.substring(1).split(":", 2)
+            parts.length == 2 && parts[0].equalsIgnoreCase("c") ? parts[1].trim() : ""
+        }
+        .findAll { !it.isBlank() }
+}
+
+def writeMultipartText = { OutputStream output, String boundary, String name, String value ->
+    output.write("--${boundary}\r\n".getBytes("UTF-8"))
+    output.write("Content-Disposition: form-data; name=\"${name}\"\r\n\r\n".getBytes("UTF-8"))
+    output.write(value.getBytes("UTF-8"))
+    output.write("\r\n".getBytes("UTF-8"))
+}
+
+def writeMultipartFile = { OutputStream output, String boundary, String name, File file ->
+    output.write("--${boundary}\r\n".getBytes("UTF-8"))
+    output.write("Content-Disposition: form-data; name=\"${name}\"; filename=\"${file.name}\"\r\n".getBytes("UTF-8"))
+    output.write("Content-Type: application/java-archive\r\n\r\n".getBytes("UTF-8"))
+    file.withInputStream { input -> input.transferTo(output) }
+    output.write("\r\n".getBytes("UTF-8"))
+}
+
+tasks.register(curseforgeUploadTaskName) {
+    group = "upload"
+    description = "Uploads the built runtime jar to CurseForge using project.toml settings."
+
+    dependsOn("validateUploadConfiguration")
+    dependsOn("signRuntimeJar")
+    onlyIf { hasCurseforgeTarget }
+
+    doLast {
+        def token = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
+        def relations = []
+        [
+            required_mods    : "requiredDependency",
+            optional_mods    : "optionalDependency",
+            incompatible_mods: "incompatible",
+            embedded_mods    : "embeddedLibrary"
+        ].each { relationKey, relationType ->
+            curseforgeRelationSlugs(relationKey).each { slug ->
+                relations << [slug: slug, type: relationType]
+            }
         }
 
-        def reqDeps = new ArrayList()
-        def optDeps = new ArrayList()
-        def incompat = new ArrayList()
-        def embLibs = new ArrayList()
-
-        def mods = config.required_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        reqDeps.add pars[1].trim()
-                    }
-                } else
-                    reqDeps.add one.trim()
-            }
-
-        mods = config.optional_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        optDeps.add pars[1].trim()
-                    }
-                } else
-                    optDeps.add one.trim()
-            }
-
-        mods = config.incompatible_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        incompat.add pars[1].trim()
-                    }
-                } else
-                    incompat.add one.trim()
-            }
-
-        mods = config.embedded_mods.split(";")
-        if (mods.length > 0 && (mods.length > 1 || !mods[0].isEmpty()))
-            for (final def one in mods) {
-                if (one.isBlank()) continue
-                if (one.startsWith("@")) {
-                    def pars = one.substring(1).split(":", 2)
-                    if (pars[0].equalsIgnoreCase("c")) {
-                        embLibs.add pars[1].trim()
-                    }
-                } else
-                    embLibs.add one.trim()
-            }
-
-        if (reqDeps.size() > 0 || optDeps.size() > 0 || incompat.size() > 0 || embLibs.size() > 0) {
-            relations {
-                reqDeps.each { dep ->
-                    requiredDependency dep
-                }
-                optDeps.each { dep ->
-                    optionalDependency dep
-                }
-                incompat.each { dep ->
-                    incompatible dep
-                }
-                embLibs.each { dep ->
-                    embeddedLibrary dep
-                }
-            }
+        def metadata = [
+            changelog    : curseforgeChangelogText,
+            changelogType: template.publishCurseforge.changelogType,
+            displayName  : template.publishCurseforge.displayName,
+            gameVersions : template.publishCurseforge.gameVersions,
+            releaseType  : template.releaseType
+        ]
+        if (template.publishCurseforge.manualRelease) {
+            metadata.isManualRelease = true
         }
+        if (template.publishCurseforge.parentFileId > 0L) {
+            metadata.parentFileID = template.publishCurseforge.parentFileId
+        }
+        if (!relations.isEmpty()) {
+            metadata.relations = [projects: relations]
+        }
+
+        def boundary = "----PickAID${System.currentTimeMillis()}"
+        def uploadUrl = new URL("https://minecraft.curseforge.com/api/projects/${template.curseforgeProject}/upload-file")
+        def connection = (HttpURLConnection) uploadUrl.openConnection()
+        connection.setRequestMethod("POST")
+        connection.setDoOutput(true)
+        connection.setRequestProperty("X-Api-Token", token)
+        connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=${boundary}")
+
+        connection.outputStream.withCloseable { output ->
+            writeMultipartText(output, boundary, "metadata", groovy.json.JsonOutput.toJson(metadata))
+            writeMultipartFile(output, boundary, "file", runtimeDistributionJar.get().asFile)
+            output.write("--${boundary}--\r\n".getBytes("UTF-8"))
+        }
+
+        def responseCode = connection.responseCode
+        def responseText = responseCode >= 400
+            ? connection.errorStream?.getText("UTF-8")
+            : connection.inputStream?.getText("UTF-8")
+        if (responseCode < 200 || responseCode >= 300) {
+            throw new GradleException("CurseForge upload failed with HTTP ${responseCode}: ${responseText ?: ''}")
+        }
+        logger.lifecycle("CurseForge upload accepted: ${responseText ?: "HTTP ${responseCode}"}")
     }
 }
 
@@ -822,6 +918,9 @@ def validateUploadConfiguration = tasks.register('validateUploadConfiguration') 
     group = "upload"
 
     doLast {
+        modrinthChangelogText
+        curseforgeChangelogText
+
         if (!hasModrinthTarget && !hasCurseforgeTarget) {
             throw new GradleException("At least one upload platform must be configured")
         }
@@ -832,12 +931,12 @@ def validateUploadConfiguration = tasks.register('validateUploadConfiguration') 
 
         def modrinthToken = System.env.MODRINTH_TOKEN ?: template.modrinthToken ?: ""
         if (hasModrinthTarget && !modrinthToken.trim()) {
-            throw new GradleException("MODRINTH_TOKEN or publish.modrinth_token is required when modrinth_project is configured")
+            throw new GradleException("MODRINTH_TOKEN or publish.modrinth.token or publish.modrinth_token is required when Modrinth publishing is configured")
         }
 
         def curseforgeToken = System.env.CURSEFORGE_TOKEN ?: template.curseforgeToken ?: ""
         if (hasCurseforgeTarget && !curseforgeToken.trim()) {
-            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge_token is required when curseforge_project is configured")
+            throw new GradleException("CURSEFORGE_TOKEN or publish.curseforge.token or publish.curseforge_token is required when CurseForge publishing is configured")
         }
     }
 }
@@ -875,7 +974,7 @@ afterEvaluate {
         tasks["modrinth"].dependsOn.add(publish)
     }
     if (!template.mavenUrl.isBlank() && hasCurseforgeTarget) {
-        tasks[curseforgeUploadTaskName].dependsOn.add(publish)
+        tasks.named(curseforgeUploadTaskName).configure { dependsOn(publish) }
     }
 }
 
